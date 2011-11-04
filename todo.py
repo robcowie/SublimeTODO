@@ -8,15 +8,11 @@
 
 
 from datetime import datetime
-from os import path
 import sublime_plugin
 
 
-## Find pss on import, not on each .run()
-PSS = path.join(path.dirname(path.abspath(__file__)), 'psslib', 'pss.py')
-# from psslib import pss
 from psslib.driver import pss_run as pss
-from markdown_pss_formatter import MarkdownOutputFormatter
+from results_formatter import ResultsOutputFormatter
 
 
 PATTERNS = {
@@ -31,36 +27,50 @@ class TodoCommand(sublime_plugin.TextCommand):
     def run(self, edit):
         self.window = self.view.window()
         new_view = self.window.new_file()
-        self.extract_and_render(new_view)
+        results = self.extract()
+        self.render(results, new_view)
 
     def search_paths(self):
         search_paths = []
         search_paths.extend(self.window.folders() or [])
+        search_paths.extend([view.file_name() for view in self.window.views() 
+                             if view.file_name()])
         return search_paths
 
-    def extract_and_render(self, result_view):
+    def extract(self):
         """Find notes matching patterns, pass through custom pss formatter, 
         which writes to a new view
         """
         search_paths = self.search_paths()
-        ## TODO: Search open files as well as project folders
-        # search_paths.extend([path.dirname(view.file_name()) for view in self.view.window().views()])
-        # search_paths.extend([view.file_name() for view in self.view.window().views()])
+
+        all_results = {}
+        for label, pattern in PATTERNS.iteritems():
+            results = []
+            renderer = ResultsOutputFormatter(results, label, pattern)
+            pss(search_paths, pattern=pattern, ignore_case=True, 
+                search_all_types=True, output_formatter=renderer)
+            if results:
+                all_results[label] = results
+
+        return all_results
+
+    def render(self, all_results, result_view):
+        ## Header
         edit_ = result_view.begin_edit()
         result_view.insert(edit_, result_view.size(), '# TODO LIST (%s)\n\n' % datetime.utcnow().strftime('%Y-%m-%d %H:%M'))
         result_view.end_edit(edit_)
 
-        for label, pattern in PATTERNS.iteritems():
-            results = []
-            renderer = MarkdownOutputFormatter(results, label, pattern)
-            pss(search_paths, pattern=pattern, ignore_case=True, output_formatter=renderer)
+        ## Result sections
+        for label, results in all_results.iteritems():
+            edit_ = result_view.begin_edit()
+            result_view.insert(edit_, result_view.size(), '## %s\n\n' % label)
+            for result in results:
+                result_view.insert(edit_, result_view.size(), '%s\n' % result)
+            result_view.insert(edit_, result_view.size(), '\n')
+            result_view.end_edit(edit_)
 
-            if results:
-                edit_ = result_view.begin_edit()
-                result_view.insert(edit_, result_view.size(), '## %s\n' % label)
-                for result in results:
-                    result_view.insert(edit_, result_view.size(), '%s\n' % result)
-                result_view.insert(edit_, result_view.size(), '\n')
-                result_view.end_edit(edit_)
-
-        result_view.set_syntax_file('Packages/YAML/YAML.tmLanguage')
+        ## Set syntax and settings
+        result_view.set_syntax_file('Packages/SublimeTODO/todo_results.hidden-tmLanguage')
+        result_view.settings().set('line_padding_bottom', 2)
+        result_view.settings().set('line_padding_top', 2)
+        result_view.settings().set('word_wrap', False)

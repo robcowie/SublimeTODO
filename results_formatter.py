@@ -7,15 +7,9 @@ import re
 from psslib.outputformatter import OutputFormatter
 
 
-
-class MarkdownOutputFormatter(OutputFormatter):
-    """ This is an abstract interface, to be implemented by output formatting
-        classes. Individual methods that must be implemented are documented
-        below. Note that some have default implementations (i.e. do not raise
-        NotImplementedError)
-
-        The pss driver expects an object adhering to this interface to do its
-        output. 
+class ResultsOutputFormatter(OutputFormatter):
+    """A simple pss OutputFormatter that formats search results and appends to 
+    self.results
     """
     def __init__(self, results, header, pattern, **kargs):
         OutputFormatter.__init__(self, **kargs)
@@ -37,13 +31,18 @@ class MarkdownOutputFormatter(OutputFormatter):
         """
         pass
 
+    def binary_file_matches(self, msg):
+        """Ignore binary files with matches"""
+        pass
+
     def matching_line(self, matchresult):
         """ Called to emit a matching line, with a matchresult.MatchResult 
             object.
         """
         idx = self.counter.next()
         line = matchresult.matching_line
-        output = '%d. %s (%d): %s' % (idx, path.basename(self.filename), 
+        index_str = '%d.' % idx
+        output = '%s %s (%d): %s' % (index_str.rjust(4), path.basename(self.filename), 
             matchresult.matching_lineno, 
             self._process_matched_line(line)
         )
@@ -66,11 +65,6 @@ class MarkdownOutputFormatter(OutputFormatter):
             context lines.
         """
         pass
-
-    def binary_file_matches(self, msg):
-        """ Called to emit a simple message inside the matches for some file.
-        """
-        raise NotImplementedError()
 
     def found_filename(self, filename):
         """ Called to emit a found filename when pss runs in file finding mode

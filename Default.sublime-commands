@@ -1,0 +1,6 @@
+[
+    {
+        "caption": "Show TODOs in project and open files",
+        "command": "todo"
+    }
+]
