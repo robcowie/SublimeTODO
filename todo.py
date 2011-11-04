@@ -5,9 +5,12 @@
 ## TODO: Make the output clickable (a la find results)
 ## TODO: Occasional NoneType bug
 ## TODO: Make the sections foldable (define them as regions?)
+## TODO: Add progress indicator (see Package Control source)
 
 
 from datetime import datetime
+import threading
+import sublime
 import sublime_plugin
 
 
@@ -23,12 +26,13 @@ PATTERNS = {
 }
 
 
-class TodoCommand(sublime_plugin.TextCommand):
-    def run(self, edit):
-        self.window = self.view.window()
-        new_view = self.window.new_file()
-        results = self.extract()
-        self.render(results, new_view)
+class TodoFinder(threading.Thread):
+    def __init__(self, window):
+        self.window = window
+        threading.Thread.__init__(self)
+
+    def run(self):
+        sublime.set_timeout(self.extract, 100)
 
     def search_paths(self):
         search_paths = []
@@ -52,10 +56,11 @@ class TodoCommand(sublime_plugin.TextCommand):
             if results:
                 all_results[label] = results
 
-        return all_results
+        self.render(all_results)
 
-    def render(self, all_results, result_view):
+    def render(self, all_results):
         ## Header
+        result_view = self.window.new_file()
         edit_ = result_view.begin_edit()
         result_view.insert(edit_, result_view.size(), '# TODO LIST (%s)\n\n' % datetime.utcnow().strftime('%Y-%m-%d %H:%M'))
         result_view.end_edit(edit_)
@@ -74,3 +79,15 @@ class TodoCommand(sublime_plugin.TextCommand):
         result_view.settings().set('line_padding_bottom', 2)
         result_view.settings().set('line_padding_top', 2)
         result_view.settings().set('word_wrap', False)
+
+
+class TodoCommand(sublime_plugin.TextCommand):
+    def run(self, edit):
+        self.window = self.view.window()
+        worker_thread = TodoFinder(self.window)
+
+        ## worker starter callback
+        def starter():
+            worker_thread.start()
+
+        sublime.set_timeout(starter, 10)
