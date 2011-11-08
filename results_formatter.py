@@ -42,11 +42,14 @@ class ResultsOutputFormatter(OutputFormatter):
         idx = self.counter.next()
         line = matchresult.matching_line
         index_str = '%d.' % idx
-        output = '%s %s (%d): %s' % (index_str.rjust(4), path.basename(self.filename), 
-            matchresult.matching_lineno, 
-            self._process_matched_line(line)
-        )
-        self.results.append(output)
+        try:
+            output = '%s %s (%d): %s' % (index_str.rjust(4), path.basename(self.filename), 
+                matchresult.matching_lineno, 
+                self._process_matched_line(line)
+            )
+            self.results.append(output)
+        except AttributeError:
+            pass
 
     def _process_matched_line(self, line):
         """Don't want to show the entire matched line, just a portion of it.
