@@ -1,11 +1,9 @@
 # -*- coding: utf-8 -*-
 
 ## TODO: Implement TODO_IGNORE setting (pass to pss ignore) (http://mdeering.com/posts/004-get-your-textmate-todos-and-fixmes-under-control)
-## TODO: Create a custom (hidden) langage for the output
 ## TODO: Make the output clickable (a la find results)
 ## TODO: Occasional NoneType bug
 ## TODO: Make the sections foldable (define them as regions?)
-
 
 from datetime import datetime
 import threading
@@ -16,11 +14,12 @@ from psslib.driver import pss_run as pss
 from results_formatter import ResultsOutputFormatter
 
 
+## Default patterns; These are always present, though can be overridden
 PATTERNS = {
-    'TODO': 'TODO[\s,:]+(.*)$',
-    'FIXME': 'FIX ?ME[\s,:]+(\S.*)$',
-    'CHANGED': 'CHANGED[\s,:]+(\S.*)$',
-    'RADAR': '(.*<)ra?dar:\/(?:\/problem|)\/([&0-9]+)(>.*)$'
+    'TODO': r'TODO[\s,:]+(.*)$',
+    'FIXME': r'FIX ?ME[\s,:]+(\S.*)$',
+    'CHANGED': r'CHANGED[\s,:]+(\S.*)$',
+    'RADAR': r'ra?dar:/(?:/problem|)/([&0-9]+)$'
 }
 
 
@@ -54,10 +53,10 @@ class ThreadProgress(object):
 
 
 
-## TODO: Take search paths. Nothing sublime related
 class TodoExtractor(object):
-    def __init__(self, search_paths):
+    def __init__(self, patterns, search_paths):
         self.search_paths = search_paths
+        self.patterns = patterns
 
     def extract(self):
         """Find notes matching patterns, pass through custom pss formatter, 
@@ -66,7 +65,7 @@ class TodoExtractor(object):
         search_paths = self.search_paths
 
         all_results = {}
-        for label, pattern in PATTERNS.iteritems():
+        for label, pattern in self.patterns.iteritems():
             results = []
             renderer = ResultsOutputFormatter(results, label, pattern)
             pss(search_paths, pattern=pattern, ignore_case=True, 
@@ -82,6 +81,7 @@ class TodoRenderer(object):
         self.window = window
 
     def render(self, all_results):
+        """This blocks the main thread, so make it quick"""
         ## Header
         result_view = self.window.new_file()
         edit_ = result_view.begin_edit()
@@ -133,8 +133,10 @@ class TodoCommand(sublime_plugin.TextCommand):
     def run(self, edit):
         window = self.view.window()
         search_paths = self.search_paths(window)
+        patterns = PATTERNS
+        patterns.update(self.view.settings().get('todo_patterns', {}))
 
-        extractor = TodoExtractor(search_paths)
+        extractor = TodoExtractor(patterns, search_paths)
         renderer = TodoRenderer(window)
         worker_thread = WorkerThread(extractor, renderer)
         worker_thread.start()
