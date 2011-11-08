@@ -5,14 +5,12 @@
 ## TODO: Make the output clickable (a la find results)
 ## TODO: Occasional NoneType bug
 ## TODO: Make the sections foldable (define them as regions?)
-## TODO: Add progress indicator (see Package Control source)
 
 
 from datetime import datetime
 import threading
 import sublime
 import sublime_plugin
-
 
 from psslib.driver import pss_run as pss
 from results_formatter import ResultsOutputFormatter
@@ -26,26 +24,46 @@ PATTERNS = {
 }
 
 
-class TodoFinder(threading.Thread):
-    def __init__(self, window):
-        self.window = window
-        threading.Thread.__init__(self)
+class ThreadProgress(object):
+    def __init__(self, thread, message, success_message):
+        self.thread = thread
+        self.message = message
+        self.success_message = success_message
+        self.addend = 1
+        self.size = 8
+        sublime.set_timeout(lambda: self.run(0), 100)
 
-    def run(self):
-        sublime.set_timeout(self.extract, 100)
+    def run(self, i):
+        if not self.thread.is_alive():
+            if hasattr(self.thread, 'result') and not self.thread.result:
+                sublime.status_message('')
+                return
+            sublime.status_message(self.success_message)
+            return
 
-    def search_paths(self):
-        search_paths = []
-        search_paths.extend(self.window.folders() or [])
-        search_paths.extend([view.file_name() for view in self.window.views() 
-                             if view.file_name()])
-        return search_paths
+        before = i % self.size
+        after = (self.size - 1) - before
+        sublime.status_message('%s [%s=%s]' % \
+            (self.message, ' ' * before, ' ' * after))
+        if not after:
+            self.addend = -1
+        if not before:
+            self.addend = 1
+        i += self.addend
+        sublime.set_timeout(lambda: self.run(i), 100)
+
+
+
+## TODO: Take search paths. Nothing sublime related
+class TodoExtractor(object):
+    def __init__(self, search_paths):
+        self.search_paths = search_paths
 
     def extract(self):
         """Find notes matching patterns, pass through custom pss formatter, 
         which writes to a new view
         """
-        search_paths = self.search_paths()
+        search_paths = self.search_paths
 
         all_results = {}
         for label, pattern in PATTERNS.iteritems():
@@ -56,7 +74,12 @@ class TodoFinder(threading.Thread):
             if results:
                 all_results[label] = results
 
-        self.render(all_results)
+        return all_results
+
+
+class TodoRenderer(object):
+    def __init__(self, window):
+        self.window = window
 
     def render(self, all_results):
         ## Header
@@ -81,13 +104,38 @@ class TodoFinder(threading.Thread):
         result_view.settings().set('word_wrap', False)
 
 
+class WorkerThread(threading.Thread):
+    def __init__(self, extractor, renderer):
+        self.extractor = extractor
+        self.renderer = renderer
+        threading.Thread.__init__(self)
+
+    def run(self):
+        ## Extract in this thread
+        todos = self.extractor.extract()
+
+        ## Render into new window in main thread
+        def render():
+            self.renderer.render(todos)
+        sublime.set_timeout(render, 10)
+
+
+
 class TodoCommand(sublime_plugin.TextCommand):
+
+    def search_paths(self, window):
+        search_paths = []
+        search_paths.extend(window.folders() or [])
+        search_paths.extend([view.file_name() for view in window.views() 
+                             if view.file_name()])
+        return search_paths
+
     def run(self, edit):
-        self.window = self.view.window()
-        worker_thread = TodoFinder(self.window)
+        window = self.view.window()
+        search_paths = self.search_paths(window)
 
-        ## worker starter callback
-        def starter():
-            worker_thread.start()
-
-        sublime.set_timeout(starter, 10)
+        extractor = TodoExtractor(search_paths)
+        renderer = TodoRenderer(window)
+        worker_thread = WorkerThread(extractor, renderer)
+        worker_thread.start()
+        ThreadProgress(worker_thread, 'Finding TODOs', '')
