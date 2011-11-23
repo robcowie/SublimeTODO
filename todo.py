@@ -6,6 +6,7 @@
 ## TODO: Make the sections foldable (define them as regions?)
 
 from datetime import datetime
+import logging
 import threading
 import sublime
 import sublime_plugin
@@ -14,13 +15,36 @@ from psslib.driver import pss_run as pss
 from results_formatter import ResultsOutputFormatter
 
 
-## Default patterns; These are always present, though can be overridden
+DEBUG = False
 PATTERNS = {
     'TODO': r'TODO[\s,:]+(.*)$',
     'FIXME': r'FIX ?ME[\s,:]+(\S.*)$',
     'CHANGED': r'CHANGED[\s,:]+(\S.*)$',
     'RADAR': r'ra?dar:/(?:/problem|)/([&0-9]+)$'
 }
+
+
+## LOGGING SETUP
+try:
+    from logging import NullHandler
+except ImportError:
+    class NullHandler(logging.Handler):
+        def handle(self, record):
+            pass
+
+        def emit(self, record):
+            pass
+
+        def createLock(self):
+            self.lock = None
+
+log = logging.getLogger('SublimeTODO')
+log.handlers = [] ## hack to prevent extraneous handlers on ST2 auto-reload
+log.addHandler(NullHandler())
+log.setLevel(logging.INFO)
+if DEBUG:
+    log.addHandler(logging.StreamHandler())
+    log.setLevel(logging.DEBUG)
 
 
 class ThreadProgress(object):
@@ -59,15 +83,16 @@ class TodoExtractor(object):
         self.search_paths = search_paths
         self.patterns = patterns
         self.file_counter = file_counter
+        self.log = logging.getLogger('SublimeTODO.extractor')
 
     def extract(self):
         """Find notes matching patterns, pass through custom pss formatter, 
         which writes to a new view
         """
         search_paths = self.search_paths
-
         all_results = {}
         for label, pattern in self.patterns.iteritems():
+            self.log.debug('Extracting for %s' % label)
             self.file_counter.reset()
             results = []
             renderer = ResultsOutputFormatter(results, label, pattern)
@@ -138,8 +163,10 @@ class FileScanCounter(object):
     def __init__(self):
         self.ct = 0
         self.lock = threading.RLock()
+        self.log = logging.getLogger('SublimeTODO')
 
     def __call__(self, filepath):
+        self.log.debug('Scanning %s' % filepath)
         self.increment()
 
     def __str__(self):
