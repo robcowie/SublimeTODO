@@ -16,14 +16,14 @@ class ResultsOutputFormatter(OutputFormatter):
         self.header = header
         self.pattern = pattern
         self.results = results
-        self.counter = itertools.count()
+        self.counter = itertools.count(1)
 
     def start_matches_in_file(self, filename):
         """ Called when a sequences of matches from some file is about to be
             output. filename is the name of the file in which the matches were
             found.
         """
-        self.counter.next() ## non zero-indexed list
+        pass
 
     def end_matches_in_file(self, filename):
         """ Called when the matches for a file have finished.

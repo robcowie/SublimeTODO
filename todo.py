@@ -24,10 +24,11 @@ PATTERNS = {
 
 
 class ThreadProgress(object):
-    def __init__(self, thread, message, success_message):
+    def __init__(self, thread, message, success_message, file_counter):
         self.thread = thread
         self.message = message
         self.success_message = success_message
+        self.file_counter = file_counter
         self.addend = 1
         self.size = 8
         sublime.set_timeout(lambda: self.run(0), 100)
@@ -42,8 +43,8 @@ class ThreadProgress(object):
 
         before = i % self.size
         after = (self.size - 1) - before
-        sublime.status_message('%s [%s=%s]' % \
-            (self.message, ' ' * before, ' ' * after))
+        sublime.status_message('%s [%s=%s] (%s files scanned)' % \
+            (self.message, ' ' * before, ' ' * after, self.file_counter))
         if not after:
             self.addend = -1
         if not before:
@@ -54,9 +55,10 @@ class ThreadProgress(object):
 
 
 class TodoExtractor(object):
-    def __init__(self, patterns, search_paths):
+    def __init__(self, patterns, search_paths, file_counter):
         self.search_paths = search_paths
         self.patterns = patterns
+        self.file_counter = file_counter
 
     def extract(self):
         """Find notes matching patterns, pass through custom pss formatter, 
@@ -66,11 +68,12 @@ class TodoExtractor(object):
 
         all_results = {}
         for label, pattern in self.patterns.iteritems():
+            self.file_counter.reset()
             results = []
             renderer = ResultsOutputFormatter(results, label, pattern)
             pss(search_paths, pattern=pattern, ignore_case=True, 
                 search_all_types=True, textonly=True,
-                output_formatter=renderer)
+                output_formatter=renderer, file_hook=self.file_counter)
             if results:
                 all_results[label] = results
 
@@ -78,15 +81,22 @@ class TodoExtractor(object):
 
 
 class TodoRenderer(object):
-    def __init__(self, window):
+    def __init__(self, window, file_counter):
         self.window = window
+        self.file_counter = file_counter
+
+    def header(self, all_results):
+        return "# TODO LIST (%s) \n## %s files scanned \n\n" % (
+            datetime.utcnow().strftime('%Y-%m-%d %H:%M'),
+            self.file_counter
+        )
 
     def render(self, all_results):
         """This blocks the main thread, so make it quick"""
         ## Header
         result_view = self.window.new_file()
         edit_ = result_view.begin_edit()
-        result_view.insert(edit_, result_view.size(), '# TODO LIST (%s)\n\n' % datetime.utcnow().strftime('%Y-%m-%d %H:%M'))
+        result_view.insert(edit_, result_view.size(), self.header(all_results))
         result_view.end_edit(edit_)
 
         ## Result sections
@@ -121,6 +131,29 @@ class WorkerThread(threading.Thread):
         sublime.set_timeout(render, 10)
 
 
+class FileScanCounter(object):
+    """Thread-safe counter used to update the status bar
+    Passed to the modified driver.pss_run(file_hook) and called (incremented) 
+    for every scanned file"""
+    def __init__(self):
+        self.ct = 0
+        self.lock = threading.RLock()
+
+    def __call__(self, filepath):
+        self.increment()
+
+    def __str__(self):
+        with self.lock:
+            return '%d' % self.ct
+
+    def increment(self):
+        with self.lock:
+            self.ct += 1
+
+    def reset(self):
+        with self.lock:
+            self.ct = 0
+
 
 class TodoCommand(sublime_plugin.TextCommand):
 
@@ -137,8 +170,10 @@ class TodoCommand(sublime_plugin.TextCommand):
         patterns = PATTERNS
         patterns.update(self.view.settings().get('todo_patterns', {}))
 
-        extractor = TodoExtractor(patterns, search_paths)
-        renderer = TodoRenderer(window)
+        file_counter = FileScanCounter()
+        extractor = TodoExtractor(patterns, search_paths, file_counter)
+        renderer = TodoRenderer(window, file_counter)
+
         worker_thread = WorkerThread(extractor, renderer)
         worker_thread.start()
-        ThreadProgress(worker_thread, 'Finding TODOs', '')
+        ThreadProgress(worker_thread, 'Finding TODOs', '', file_counter)
