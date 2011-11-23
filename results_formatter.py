@@ -38,24 +38,21 @@ class ResultsOutputFormatter(OutputFormatter):
         """ Called to emit a matching line, with a matchresult.MatchResult 
             object.
         """
-        idx = self.counter.next()
-        line = match.matching_line
-        index_str = '%d.' % idx
-        try:
-            output = '%s %s (%d): %s' % (index_str.rjust(4), path.basename(filepath), 
-                match.matching_lineno, 
-                self._process_matched_line(line)
-            )
-            self.results.append(output)
-        except AttributeError:
-            pass
-
-    def _process_matched_line(self, line):
-        """Don't want to show the entire matched line, just a portion of it.
-        pss doesn't handle regexp groups, so we can't define groups in the 
-        pattern. Horribly inefficient as it searches the line a second time
-        """
-        return re.search(self.pattern, line.strip()).groups()[0]
+        filename = path.basename(filepath)
+        for match_range in match.matching_column_ranges:
+            idx = self.counter.next()
+            index_str = '%d.' % idx
+            msg = match.matching_line[slice(*match_range)].decode('utf8', 'ignore')
+            try:
+                output = '%s %s (%d): %s' % (
+                    index_str.rjust(4), 
+                    filename, 
+                    match.matching_lineno, 
+                    msg.encode('utf8', 'ignore')
+                )
+                self.results.append(output)
+            except AttributeError:
+                pass
 
     def context_line(self, line, lineno):
         """ Called to emit a context line.
