@@ -18,56 +18,113 @@ from .utils import istextfile
 from .py3compat import str2bytes
 
 
-TYPE_EXTENSION_MAP = {
-        'actionscript':     ['.as', '.mxml'],
-        'ada':              ['.ada', '.adb', '.ads'],
-        'batch':            ['.bat', '.cmd'],
-        'asm':              ['.asm', '.s'],
-        'cc':               ['.c', '.h', '.xs'],
-        'cfmx':             ['.cfc', '.cfm', '.cfml'],
-        'cpp':              ['.cpp', '.cc', '.cxx', '.m', '.hpp', '.hh', '.h', '.hxx'],
-        'csharp':           ['.cs'],
-        'css':              ['.css'],
-        'elisp':            ['.elisp'],
-        'erlang':           ['.erl', '.hrl'],
-        'fortran':          ['.f', '.f77', '.f90', '.f95', '.f03', '.for', '.ftn', '.fpp'],
-        'haskell':          ['.hs', '.lhs'],
-        'hh':               ['.h'],
-        'html':             ['.htm', '.html', '.shtml', '.xhtml'],
-        'java':             ['.java', '.properties'],
-        'js':               ['.js'],
-        'jsp':              ['.jsp'],
-        'lisp':             ['.lisp', '.lsp', '.cl'],
-        'lua':              ['.lua'],
-        'mason':            ['.mas', '.mthml', '.mpl', '.mtxt'],
-        'objc':             ['.m', '.h'],
-        'objcpp':           ['.mm', '.h'],
-        'ocaml':            ['.ml', '.mli'],
-        'parrot':           ['.pir', '.pasm', '.pmc', '.ops', '.pod', '.pg', '.tg'],
-        'perl':             ['.pl', '.pm', '.pod', '.t'],
-        'php':              ['.php', '.phpt', '.php3', '.php4', '.php5', '.phtml'],
-        'plone':            ['.pt', '.cpt', '.metadata', '.cpy', '.py'],
-        'python':           ['.py'],
-        'ruby':             ['.rb', '.rhtml', '.rjs', '.rxml', '.erb', '.rake'],
-        'scala':            ['.scala'],
-        'scheme':           ['.scm', '.ss'],
-        'shell':            ['.sh', '.bash', '.csh', '.tcsh', '.ksh', '.zsh'],
-        'smalltalk':        ['.st'],
-        'sql':              ['.sql', '.ctl'],
-        'tcl':              ['.tck', '.itcl', '.itk'],
-        'tex':              ['.tex', '.cls', '.sty'],
-        'tt':               ['.tt', '.tt2', '.ttml'],
-        'vb':               ['.bas', '.cls', '.frm', '.ctl', '.vb', '.resx'],
-        'vim':              ['.vim'],
-        'xml':              ['.xml', '.dtd', '.xslt', '.ent'],
-        'yaml':             ['.yaml', '.yml'],
+class TypeValue(object):
+    EXTENSION, PATTERN = range(2)
+
+    def __init__(self, kind, value):
+        self.kind = kind
+        self.value = value
+
+
+TYPE_MAP = {
+    'actionscript':     
+        TypeValue(TypeValue.EXTENSION, ['.as', '.mxml']),
+    'ada':
+        TypeValue(TypeValue.EXTENSION, ['.ada', '.adb', '.ads']),
+    'batch':
+        TypeValue(TypeValue.EXTENSION, ['.bat', '.cmd']),
+    'asm':
+        TypeValue(TypeValue.EXTENSION, ['.asm', '.s']),
+    'cc':
+        TypeValue(TypeValue.EXTENSION, ['.c', '.h', '.xs']),
+    'cfmx':
+        TypeValue(TypeValue.EXTENSION, ['.cfc', '.cfm', '.cfml']),
+    'cmake':
+        TypeValue(TypeValue.PATTERN, ['CMakeLists.txt']),
+    'cpp':
+        TypeValue(TypeValue.EXTENSION, ['.cpp', '.cc', '.cxx', '.m', '.hpp', '.hh', '.h', '.hxx']),
+    'csharp':
+        TypeValue(TypeValue.EXTENSION, ['.cs']),
+    'css':
+        TypeValue(TypeValue.EXTENSION, ['.css']),
+    'elisp':
+        TypeValue(TypeValue.EXTENSION, ['.elisp']),
+    'erlang':
+        TypeValue(TypeValue.EXTENSION, ['.erl', '.hrl']),
+    'fortran':
+        TypeValue(TypeValue.EXTENSION, ['.f', '.f77', '.f90', '.F90', '.f95', '.F95', '.f03', '.for', '.ftn', '.fpp']),
+    'haskell':
+        TypeValue(TypeValue.EXTENSION, ['.hs', '.lhs']),
+    'hh':
+        TypeValue(TypeValue.EXTENSION, ['.h']),
+    'html':
+        TypeValue(TypeValue.EXTENSION, ['.htm', '.html', '.shtml', '.xhtml']),
+    'java':
+        TypeValue(TypeValue.EXTENSION, ['.java', '.properties']),
+    'js':
+        TypeValue(TypeValue.EXTENSION, ['.js']),
+    'jsp':
+        TypeValue(TypeValue.EXTENSION, ['.jsp']),
+    'lisp':
+        TypeValue(TypeValue.EXTENSION, ['.lisp', '.lsp', '.cl']),
+    'lua':
+        TypeValue(TypeValue.EXTENSION, ['.lua']),
+    'make':
+        TypeValue(TypeValue.PATTERN, ['[Mm]akefile']),
+    'mason':
+        TypeValue(TypeValue.EXTENSION, ['.mas', '.mthml', '.mpl', '.mtxt']),
+    'objc':
+        TypeValue(TypeValue.EXTENSION, ['.m', '.h']),
+    'objcpp':
+        TypeValue(TypeValue.EXTENSION, ['.mm', '.h']),
+    'ocaml':
+        TypeValue(TypeValue.EXTENSION, ['.ml', '.mli']),
+    'parrot':
+        TypeValue(TypeValue.EXTENSION, ['.pir', '.pasm', '.pmc', '.ops', '.pod', '.pg', '.tg']),
+    'perl':
+        TypeValue(TypeValue.EXTENSION, ['.pl', '.pm', '.pod', '.t']),
+    'php':
+        TypeValue(TypeValue.EXTENSION, ['.php', '.phpt', '.php3', '.php4', '.php5', '.phtml']),
+    'plone':
+        TypeValue(TypeValue.EXTENSION, ['.pt', '.cpt', '.metadata', '.cpy', '.py']),
+    'python':
+        TypeValue(TypeValue.EXTENSION, ['.py']),
+    'rake':
+        TypeValue(TypeValue.PATTERN, ['[Rr]akefile']),
+    'rst':
+        TypeValue(TypeValue.EXTENSION, ['.rst', '.rest']),
+    'ruby':
+        TypeValue(TypeValue.EXTENSION, ['.rb', '.rhtml', '.rjs', '.rxml', '.erb', '.rake']),
+    'scala':
+        TypeValue(TypeValue.EXTENSION, ['.scala']),
+    'scheme':
+        TypeValue(TypeValue.EXTENSION, ['.scm', '.ss']),
+    'shell':
+        TypeValue(TypeValue.EXTENSION, ['.sh', '.bash', '.csh', '.tcsh', '.ksh', '.zsh']),
+    'smalltalk':
+        TypeValue(TypeValue.EXTENSION, ['.st']),
+    'sql':
+        TypeValue(TypeValue.EXTENSION, ['.sql', '.ctl']),
+    'tcl':
+        TypeValue(TypeValue.EXTENSION, ['.tck', '.itcl', '.itk']),
+    'tex':
+        TypeValue(TypeValue.EXTENSION, ['.tex', '.cls', '.sty']),
+    'tt':
+        TypeValue(TypeValue.EXTENSION, ['.tt', '.tt2', '.ttml']),
+    'txt':
+        TypeValue(TypeValue.EXTENSION, ['.txt', '.text']),
+    'vb':
+        TypeValue(TypeValue.EXTENSION, ['.bas', '.cls', '.frm', '.ctl', '.vb', '.resx']),
+    'vim':
+        TypeValue(TypeValue.EXTENSION, ['.vim']),
+    'xml':
+        TypeValue(TypeValue.EXTENSION, ['.xml', '.dtd', '.xslt', '.ent']),
+    'yaml':
+        TypeValue(TypeValue.EXTENSION, ['.yaml', '.yml']),
 }
-ALL_KNOWN_EXTENSIONS = set(
-        ext for extensions in TYPE_EXTENSION_MAP.values() 
-            for ext in extensions)
 
 IGNORED_DIRS = set([   
-    'blib', '_build', '.bzr', '.cdv', 'cover_db',
+    'blib', '_build', '.bzr', '.cdv', 'cover_db', '__pycache__',
     'CVS', '_darcs', '~.dep', '~.dot', '.git', '.hg', '~.nib', 
     '.pc', '~.plst', 'RCS', 'SCCS', '_sgbak', '.svn'])
 
@@ -90,6 +147,7 @@ def pss_run(roots,
         add_ignored_dirs=[],
         remove_ignored_dirs=[],
         recurse=True,
+        textonly=False,
         type_pattern=None, # for -G and -g
         include_types=[],  # empty means all known types are included
         exclude_types=[],
@@ -100,6 +158,10 @@ def pss_run(roots,
         literal_pattern=False,
         max_match_count=sys.maxsize,
         do_colors=True,
+        match_color_str=None,
+        filename_color_str=None,
+        do_break=True,
+        do_heading=True,
         prefix_filename_to_file_matches=True,
         show_column_of_first_match=False,
         ncontext_before=0,
@@ -115,9 +177,12 @@ def pss_run(roots,
     #
     if output_formatter is None:
         output_formatter = DefaultPssOutputFormatter(
-            do_colors,
-            prefix_filename_to_file_matches,
-            show_column_of_first_match)
+            do_colors=do_colors,
+            match_color_str=match_color_str,
+            filename_color_str=filename_color_str,
+            do_heading=do_heading,
+            prefix_filename_to_file_matches=prefix_filename_to_file_matches,
+            show_column_of_first_match=show_column_of_first_match)
 
     # Set up the FileFinder
     #
@@ -133,6 +198,25 @@ def pss_run(roots,
     search_file_patterns = set()
     ignore_file_patterns = set()
 
+    # Populate the *pattern and *extensions sets separately. Although the 
+    # conditions are similar, this results in simpler code at the cost of a bit
+    # of duplication. Merging all together results in an undreadable soup of 
+    # IFs
+    if not search_all_files_and_dirs and not search_all_types:
+        ignore_file_patterns = IGNORED_FILE_PATTERNS
+
+        if include_types:
+            for typ in include_types:
+                if TYPE_MAP[typ].kind == TypeValue.PATTERN:
+                    search_file_patterns.update(TYPE_MAP[typ].value)
+
+        for typ in exclude_types:
+            if TYPE_MAP[typ].kind == TypeValue.PATTERN:
+                ignore_file_patterns.update(TYPE_MAP[typ].value)
+    else:
+        # all files are searched
+        pass
+
     if type_pattern is not None:
         search_file_patterns.add(type_pattern)
 
@@ -140,13 +224,15 @@ def pss_run(roots,
         if include_types:
             search_extensions.clear()
             for typ in include_types:
-                search_extensions.update(TYPE_EXTENSION_MAP[typ])
+                if TYPE_MAP[typ].kind == TypeValue.EXTENSION:
+                    search_extensions.update(TYPE_MAP[typ].value)
         else:
-            for ext in TYPE_EXTENSION_MAP.values():
-                search_extensions.update(ext)
+            for typeval in TYPE_MAP.values():
+                if typeval.kind == TypeValue.EXTENSION:
+                    search_extensions.update(typeval.value)
         for typ in exclude_types:
-            ignore_extensions.update(TYPE_EXTENSION_MAP[typ])
-        ignore_file_patterns = IGNORED_FILE_PATTERNS
+            if TYPE_MAP[typ].kind == TypeValue.EXTENSION:
+                ignore_extensions.update(TYPE_MAP[typ].value)
     else:
         # An empty search_extensions means all extensions are searched
         pass
@@ -154,6 +240,7 @@ def pss_run(roots,
     filefinder = FileFinder(
             roots=roots,
             recurse=recurse,
+            find_only_text_files=textonly,
             ignore_dirs=ignore_dirs,
             search_extensions=search_extensions,
             ignore_extensions=ignore_extensions,
@@ -254,28 +341,20 @@ def pss_run(roots,
                         prev_was_blank = True
                         continue
                     elif result == LINE_MATCH:
-                        output_formatter.matching_line(match)
+                        output_formatter.matching_line(match, filepath)
                     elif result == LINE_CONTEXT:
                         if prev_was_blank and had_context:
                             output_formatter.context_separator()
-                        output_formatter.context_line(line, n)
+                        output_formatter.context_line(line, n, filepath)
                         had_context = True
                     prev_was_blank = False
             else:
                 # just show the matches without considering context
                 for match in matches:
-                    output_formatter.matching_line(match)
-            output_formatter.end_matches_in_file(filepath)
+                    output_formatter.matching_line(match, filepath)
 
-
-def _known_file_type(filename):
-    """ Is the given file something we know about?
-        Judges solely based on the file name and extension.
-    """
-    if os.path.splitext(filename)[1] in ALL_KNOWN_EXTENSIONS:
-        return True
-    else:
-        return False
+            if do_break:
+                output_formatter.end_matches_in_file(filepath)
 
 
 def _pattern_has_uppercase(pattern):

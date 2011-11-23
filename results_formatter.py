@@ -24,7 +24,6 @@ class ResultsOutputFormatter(OutputFormatter):
             found.
         """
         self.counter.next() ## non zero-indexed list
-        self.filename = filename
 
     def end_matches_in_file(self, filename):
         """ Called when the matches for a file have finished.
@@ -35,16 +34,16 @@ class ResultsOutputFormatter(OutputFormatter):
         """Ignore binary files with matches"""
         pass
 
-    def matching_line(self, matchresult):
+    def matching_line(self, match, filepath):
         """ Called to emit a matching line, with a matchresult.MatchResult 
             object.
         """
         idx = self.counter.next()
-        line = matchresult.matching_line
+        line = match.matching_line
         index_str = '%d.' % idx
         try:
-            output = '%s %s (%d): %s' % (index_str.rjust(4), path.basename(self.filename), 
-                matchresult.matching_lineno, 
+            output = '%s %s (%d): %s' % (index_str.rjust(4), path.basename(filepath), 
+                match.matching_lineno, 
                 self._process_matched_line(line)
             )
             self.results.append(output)

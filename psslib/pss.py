@@ -13,7 +13,7 @@ import optparse
 
 
 from psslib import __version__
-from psslib.driver import (pss_run, TYPE_EXTENSION_MAP,
+from psslib.driver import (pss_run, TYPE_MAP,
         IGNORED_DIRS, IGNORED_FILE_PATTERNS, PssOnlyFindFilesOption)
 
 
@@ -101,6 +101,7 @@ def main(argv=sys.argv, output_formatter=None):
                 add_ignored_dirs=options.ignored_dirs or [],
                 remove_ignored_dirs=options.noignored_dirs or [],
                 recurse=options.recurse,
+                textonly=options.textonly,
                 type_pattern=options.type_pattern,
                 include_types=include_types,
                 exclude_types=exclude_types,
@@ -111,6 +112,10 @@ def main(argv=sys.argv, output_formatter=None):
                 literal_pattern=options.literal,
                 max_match_count=options.max_count,
                 do_colors=options.do_colors,
+                match_color_str=options.color_match,
+                filename_color_str=options.color_filename,
+                do_break=options.do_break,
+                do_heading=options.do_heading,
                 prefix_filename_to_file_matches=options.prefix_filename,
                 show_column_of_first_match=options.show_column,
                 ncontext_before=ncontext_before,
@@ -211,7 +216,10 @@ def parse_cmdline(cmdline_args):
         type='int', help='Stop searching in each file after NUM matches')
     group_output.add_option('-H', '--with-filename',
         action='store_true', dest='prefix_filename', default=True,
-        help='Print the filename before matches (default)')
+        help=' '.join(r'''Print the filename before matches (default). If
+        --noheading is specified, the filename will be prepended to each
+        matching line. Otherwise it is printed once for all the matches
+        in the file.'''.split()))
     group_output.add_option('-h', '--no-filename',
         action='store_false', dest='prefix_filename',
         help='Suppress printing the filename before matches')
@@ -233,6 +241,18 @@ def parse_cmdline(cmdline_args):
     group_output.add_option('--nocolor',
         action='store_false', dest='do_colors',
         help='Do not highlight the matching text (this is the default when output is redirected)')
+    group_output.add_option('--color-match', metavar='FORE,BACK,STYLE',
+        action='store', dest='color_match',
+        help='Set the color for matches')
+    group_output.add_option('--color-filename', metavar='FORE,BACK,STYLE',
+        action='store', dest='color_filename',
+        help='Set the color for emitted filenames')
+    group_output.add_option('--nobreak',
+        action='store_false', dest='do_break', default=True,
+        help='Print no break between results from different files')
+    group_output.add_option('--noheading',
+        action='store_false', dest='do_heading', default=True,
+        help="Print no file name heading above each file's results")
     optparser.add_option_group(group_output)
 
     group_filefinding = optparse.OptionGroup(optparser, 'File finding')
@@ -269,6 +289,10 @@ def parse_cmdline(cmdline_args):
     group_inclusion.add_option('-n', '--no-recurse',
         action='store_false', dest='recurse',
         help='Do not recurse into subdirectories')
+    group_inclusion.add_option('-t', '--textonly', '--nobinary',
+        action='store_true', dest='textonly', default=False,
+        help='''Restrict the search to only textual files.
+        Warning: with this option the search is likely to run much slower''')
     group_inclusion.add_option('-G',
         action='store', dest='type_pattern', metavar='REGEX',
         help='Only search files that match REGEX')
@@ -285,7 +309,7 @@ def parse_cmdline(cmdline_args):
         else:
             parser.values.typelist = [optname]
 
-    for t in TYPE_EXTENSION_MAP:
+    for t in TYPE_MAP:
         optparser.add_option('--' + t,
             help=optparse.SUPPRESS_HELP,
             action='callback',
@@ -309,10 +333,10 @@ search and --no<type> excludes it.
 def print_help_types():
     print(HELP_TYPES_PREAMBLE)
 
-    for typ in sorted(TYPE_EXTENSION_MAP.keys()):
+    for typ in sorted(TYPE_MAP.keys()):
         typestr = '--[no]%s' % typ
         print('    %-21s' % typestr, end='')
-        print(' '.join(TYPE_EXTENSION_MAP[typ]))
+        print(' '.join(TYPE_MAP[typ].value))
     print()
 
 

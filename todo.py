@@ -69,7 +69,8 @@ class TodoExtractor(object):
             results = []
             renderer = ResultsOutputFormatter(results, label, pattern)
             pss(search_paths, pattern=pattern, ignore_case=True, 
-                search_all_types=True, output_formatter=renderer)
+                search_all_types=True, textonly=True,
+                output_formatter=renderer)
             if results:
                 all_results[label] = results
 
