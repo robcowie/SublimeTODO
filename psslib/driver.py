@@ -166,6 +166,7 @@ def pss_run(roots,
         show_column_of_first_match=False,
         ncontext_before=0,
         ncontext_after=0,
+        file_hook=None
         ):
     """ The main pss invocation function - handles all PSS logic.
         For documentation of options, see the --help output of the pss script,
@@ -270,6 +271,8 @@ def pss_run(roots,
     # All systems go...
     #
     for filepath in filefinder.files():
+        if file_hook:
+            file_hook(filepath)
         # If only_find_files is requested and no special option provided,
         # this is kind of 'find -name'
         if (    only_find_files and 
