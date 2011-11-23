@@ -79,11 +79,20 @@ class ThreadProgress(object):
 
 
 class TodoExtractor(object):
-    def __init__(self, patterns, search_paths, file_counter):
+    def __init__(self, patterns, search_paths, file_counter, filepath_cache):
         self.search_paths = search_paths
         self.patterns = patterns
         self.file_counter = file_counter
+        self.filepath_cache = filepath_cache
         self.log = logging.getLogger('SublimeTODO.extractor')
+
+
+    def on_file(self, filepath):
+        """Called by pss_run on every file. Returns False (cancel file 
+        searching) if file has already been seen
+        """
+        self.file_counter(filepath)
+        return self.filepath_cache.is_new(filepath)
 
     def extract(self):
         """Find notes matching patterns, pass through custom pss formatter, 
@@ -94,11 +103,12 @@ class TodoExtractor(object):
         for label, pattern in self.patterns.iteritems():
             self.log.debug('Extracting for %s' % label)
             self.file_counter.reset()
+            self.filepath_cache.reset()
             results = []
             renderer = ResultsOutputFormatter(results, label, pattern)
             pss(search_paths, pattern=pattern, ignore_case=True, 
                 search_all_types=True, textonly=True,
-                output_formatter=renderer, file_hook=self.file_counter)
+                output_formatter=renderer, file_hook=self.on_file)
             if results:
                 all_results[label] = results
 
@@ -182,6 +192,21 @@ class FileScanCounter(object):
             self.ct = 0
 
 
+class FilepathDeduper(object):
+    """Store known filepaths, check if new path has been seen"""
+    def __init__(self):
+        self.paths = set()
+
+    def is_new(self, filepath):
+        if filepath in self.paths:
+            return False
+        self.paths.add(filepath)
+        return True
+
+    def reset(self):
+        self.paths = set()
+
+
 class TodoCommand(sublime_plugin.TextCommand):
 
     def search_paths(self, window):
@@ -198,7 +223,8 @@ class TodoCommand(sublime_plugin.TextCommand):
         patterns.update(self.view.settings().get('todo_patterns', {}))
 
         file_counter = FileScanCounter()
-        extractor = TodoExtractor(patterns, search_paths, file_counter)
+        filepath_cache = FilepathDeduper()
+        extractor = TodoExtractor(patterns, search_paths, file_counter, filepath_cache)
         renderer = TodoRenderer(window, file_counter)
 
         worker_thread = WorkerThread(extractor, renderer)

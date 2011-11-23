@@ -271,8 +271,8 @@ def pss_run(roots,
     # All systems go...
     #
     for filepath in filefinder.files():
-        if file_hook:
-            file_hook(filepath)
+        if file_hook and not file_hook(filepath):
+            continue
         # If only_find_files is requested and no special option provided,
         # this is kind of 'find -name'
         if (    only_find_files and 
