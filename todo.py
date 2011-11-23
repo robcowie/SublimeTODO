@@ -17,9 +17,9 @@ from results_formatter import ResultsOutputFormatter
 
 DEBUG = False
 PATTERNS = {
-    'TODO': r'TODO[\s,:]+(.*)$',
-    'FIXME': r'FIX ?ME[\s,:]+(\S.*)$',
-    'CHANGED': r'CHANGED[\s,:]+(\S.*)$',
+    'TODO': r'TODO[\s]*?:+(.*)$',
+    'FIXME': r'FIX ?ME[\s]*?:+(\S.*)$',
+    'CHANGED': r'CHANGED[\s]*?:+(\S.*)$',
     'RADAR': r'ra?dar:/(?:/problem|)/([&0-9]+)$'
 }
 
