@@ -6,6 +6,7 @@
 ## TODO: Make the sections foldable (define them as regions?)
 
 from datetime import datetime
+import fnmatch
 import logging
 import threading
 import sublime
@@ -79,11 +80,14 @@ class ThreadProgress(object):
 
 
 class TodoExtractor(object):
-    def __init__(self, patterns, search_paths, file_counter, filepath_cache):
+    def __init__(self, patterns, search_paths, ignored_dirs, ignored_file_patterns, 
+                 file_counter, filepath_cache):
         self.search_paths = search_paths
         self.patterns = patterns
         self.file_counter = file_counter
         self.filepath_cache = filepath_cache
+        self.ignored_dirs = ignored_dirs
+        self.ignored_files = ignored_file_patterns
         self.log = logging.getLogger('SublimeTODO.extractor')
 
 
@@ -107,8 +111,10 @@ class TodoExtractor(object):
             results = []
             renderer = ResultsOutputFormatter(results, label, pattern)
             pss(search_paths, pattern=pattern, ignore_case=True, 
-                search_all_types=True, textonly=True,
-                output_formatter=renderer, file_hook=self.on_file)
+                add_ignored_files=self.ignored_files, textonly=True,
+                output_formatter=renderer, 
+                add_ignored_dirs=self.ignored_dirs, 
+                file_hook=self.on_file)
             if results:
                 all_results[label] = results
 
@@ -222,9 +228,21 @@ class TodoCommand(sublime_plugin.TextCommand):
         patterns = PATTERNS
         patterns.update(self.view.settings().get('todo_patterns', {}))
 
+        ## Get exclude patterns from global settings
+        ## Is there really no better way to access global settings?
+        print('fetching global settings')
+        global_settings = sublime.load_settings('Global.sublime-settings')
+        ignored_dirs = global_settings.get('folder_exclude_patterns', [])
+
+        exclude_file_patterns = []
+        exclude_file_patterns.extend(global_settings.get('file_exclude_patterns', []))
+        exclude_file_patterns.extend(global_settings.get('binary_file_patterns', []))
+        exclude_file_patterns = [fnmatch.translate(patt) for patt in exclude_file_patterns]
+
         file_counter = FileScanCounter()
         filepath_cache = FilepathDeduper()
-        extractor = TodoExtractor(patterns, search_paths, file_counter, filepath_cache)
+        extractor = TodoExtractor(patterns, search_paths, ignored_dirs, 
+                                  exclude_file_patterns, file_counter, filepath_cache)
         renderer = TodoRenderer(window, file_counter)
 
         worker_thread = WorkerThread(extractor, renderer)

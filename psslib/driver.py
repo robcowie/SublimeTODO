@@ -146,6 +146,7 @@ def pss_run(roots,
         search_all_files_and_dirs=False,
         add_ignored_dirs=[],
         remove_ignored_dirs=[],
+        add_ignored_files=[],
         recurse=True,
         textonly=False,
         type_pattern=None, # for -G and -g
@@ -205,6 +206,8 @@ def pss_run(roots,
     # IFs
     if not search_all_files_and_dirs and not search_all_types:
         ignore_file_patterns = IGNORED_FILE_PATTERNS
+        ## ADDED: Allow passing of ignore file patterns
+        ignore_file_patterns.update(add_ignored_files)
 
         if include_types:
             for typ in include_types:
