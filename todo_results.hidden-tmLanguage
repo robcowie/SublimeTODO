@@ -9,8 +9,8 @@
     <array>
         <dict>
             <key>match</key>
-            <!-- <string>^([\d]+\.) ([a-z. ^\(\-]+) \(([\d]+)\): (.*)$</string> -->
-            <string>^[\s]{0,2}([\d]+\.) ([^\(]+) \(([\d]+)\)(:) (.*)$</string>
+            <!-- <string>^[\s]{0,2}([\d]+\.) ([^\(]+) \(([\d]+)\)(:) (.*)$</string> -->
+            <string>^[\s]{0,2}([\d]+\.) ([^:]+)(:)([\d]+) (.*)$</string>
             <key>captures</key>
             <dict>
                 <key>1</key>
@@ -26,12 +26,12 @@
                 <key>3</key>
                 <dict>
                     <key>name</key>
-                    <string>constant.numeric.line-number.todo-list</string>
+                    <string>punctuation.definition.delimiter</string>
                 </dict>
                 <key>4</key>
                 <dict>
                     <key>name</key>
-                    <string>punctuation.definition.delimiter</string>
+                    <string>constant.numeric.line-number.todo-list</string>
                 </dict>
                 <key>5</key>
                 <dict>

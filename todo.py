@@ -1,29 +1,33 @@
 # -*- coding: utf-8 -*-
 
-## TODO: Implement TODO_IGNORE setting (pass to pss ignore) (http://mdeering.com/posts/004-get-your-textmate-todos-and-fixmes-under-control)
+## TODO: Implement TODO_IGNORE setting (http://mdeering.com/posts/004-get-your-textmate-todos-and-fixmes-under-control)
 ## TODO: Make the output clickable (a la find results)
 ## TODO: Occasional NoneType bug
 ## TODO: Make the sections foldable (define them as regions?)
 
+from collections import namedtuple
 from datetime import datetime
 import fnmatch
+from itertools import groupby
 import logging
+from os import path, walk
+import re
 import threading
+
 import sublime
 import sublime_plugin
-
-from psslib.driver import pss_run as pss
-from results_formatter import ResultsOutputFormatter
 
 
 DEBUG = False
 PATTERNS = {
-    'TODO': r'TODO[\s]*?:+(.*)$',
-    'FIXME': r'FIX ?ME[\s]*?:+(\S.*)$',
-    'CHANGED': r'CHANGED[\s]*?:+(\S.*)$',
-    'RADAR': r'ra?dar:/(?:/problem|)/([&0-9]+)$'
+    'TODO'     : r'TODO[\s]*?:+(?P<todo>.*)$',
+    'NOTE'     : r'NOTE[\s]*?:+(?P<note>.*)$',
+    'FIXME'    : r'FIX ?ME[\s]*?:+(?P<fixme>\S.*)$',
+    'CHANGED'  : r'CHANGED[\s]*?:+(?P<changed>\S.*)$',
+    # 'RADAR'    : r'ra?dar:/(?:/problem|)/([&0-9]+)$'
 }
 
+Message = namedtuple('Message', 'type, msg')
 
 ## LOGGING SETUP
 try:
@@ -80,45 +84,73 @@ class ThreadProgress(object):
 
 
 class TodoExtractor(object):
-    def __init__(self, patterns, search_paths, ignored_dirs, ignored_file_patterns, 
-                 file_counter, filepath_cache):
-        self.search_paths = search_paths
+    def __init__(self, patterns, filepaths, dirpaths, ignored_dirs, ignored_file_patterns, 
+                 file_counter):
+        self.filepaths = filepaths
+        self.dirpaths = dirpaths
         self.patterns = patterns
         self.file_counter = file_counter
-        self.filepath_cache = filepath_cache
         self.ignored_dirs = ignored_dirs
         self.ignored_files = ignored_file_patterns
         self.log = logging.getLogger('SublimeTODO.extractor')
 
 
-    def on_file(self, filepath):
-        """Called by pss_run on every file. Returns False (cancel file 
-        searching) if file has already been seen
-        """
-        self.file_counter(filepath)
-        return self.filepath_cache.is_new(filepath)
+    def iter_files(self):
+        """"""
+        seen_paths_ = []
+        files = self.filepaths
+        dirs = self.dirpaths
+        exclude_dirs = self.ignored_dirs
+
+        for filepath in files:
+            pth = path.abspath(filepath)
+            if pth not in seen_paths_:
+                seen_paths_.append(pth)
+                yield pth
+
+        for dirpath in dirs:
+            dirpath = path.abspath(dirpath)
+            for dirpath, dirnames, filenames in walk(dirpath):
+                ## remove excluded dirs
+                for dir in [dir for dir in exclude_dirs if dir in dirnames]:
+                    self.log.debug('Ignoring dir: {0}'.format(dir))
+                    dirnames.remove(dir)
+
+                for filepath in filenames:
+                    pth = path.join(dirpath, filepath)
+                    if pth not in seen_paths_:
+                        seen_paths_.append(pth)
+                        yield pth
+
+    def filter_files(self, files):
+        """"""
+        exclude_patterns = [re.compile(patt) for patt in self.ignored_files]
+        for filepath in files:
+            if any(patt.match(filepath) for patt in exclude_patterns):
+                continue
+            yield filepath
+
+    def search_targets(self):
+        """Yield filtered filepaths for message extraction"""
+        return self.filter_files(self.iter_files())
 
     def extract(self):
-        """Find notes matching patterns, pass through custom pss formatter, 
-        which writes to a new view
-        """
-        search_paths = self.search_paths
-        all_results = {}
-        for label, pattern in self.patterns.iteritems():
-            self.log.debug('Extracting for %s' % label)
-            self.file_counter.reset()
-            self.filepath_cache.reset()
-            results = []
-            renderer = ResultsOutputFormatter(results, label, pattern)
-            pss(search_paths, pattern=pattern, ignore_case=True, 
-                add_ignored_files=self.ignored_files, textonly=True,
-                output_formatter=renderer, 
-                add_ignored_dirs=self.ignored_dirs, 
-                file_hook=self.on_file)
-            if results:
-                all_results[label] = results
-
-        return all_results
+        """"""
+        message_patterns = '|'.join(self.patterns.values())
+        patt = re.compile(message_patterns)
+        for filepath in self.search_targets():
+            try:
+                f = open(filepath)
+                self.log.debug('Scanning {0}'.format(filepath))
+                for linenum, line in enumerate(f):
+                    for mo in patt.finditer(line):
+                        ## Remove the non-matched groups
+                        matches = [Message(msg_type, msg) for msg_type, msg in mo.groupdict().iteritems() if msg]
+                        for match in matches:
+                            yield {'filepath': filepath, 'linenum': linenum, 'match': match}
+            finally:
+                self.file_counter.increment()
+                f.close()
 
 
 class TodoRenderer(object):
@@ -126,30 +158,52 @@ class TodoRenderer(object):
         self.window = window
         self.file_counter = file_counter
 
-    def header(self, all_results):
-        return "# TODO LIST (%s) \n## %s files scanned \n\n" % (
-            datetime.utcnow().strftime('%Y-%m-%d %H:%M'),
-            self.file_counter
-        )
+    @property
+    def header(self):
+        hr = '+ {0} +'.format('-' * 76)
+        return '{hr}\n| TODOS @ {0:<68} |\n| {1:<76} |\n{hr}\n'.format(
+            datetime.utcnow().strftime('%A %d %B %Y %H:%M'),
+            '{0} files scanned'.format(self.file_counter),
+            hr=hr)
+        # return '# TODOs @ {0} \n## {1} files scanned \n\n'.format(
+            # datetime.utcnow().strftime('%A %d %B %Y %H:%M'),
+            # self.file_counter
+        # )
 
-    def render(self, all_results):
+    ## NOTE: Fubar
+    def format(self, messages):
+        key_func = lambda m: m['match'].type
+        messages = sorted(messages, key=key_func)
+
+        for message_type, matches in groupby(messages, key=key_func):
+            matches = list(matches)
+            if matches:
+                yield '\n## {0} ({1})'.format(message_type.upper(), len(matches))
+                for idx, m in enumerate(matches):
+                    idx += 1
+                    msg = m['match'].msg.decode('utf8', 'ignore') ## Don't know the file encoding
+                    filepath = path.basename(m['filepath'])
+                    line = u"{idx}. {filepath}:{linenum} {msg}".format(
+                        idx=idx, filepath=filepath, linenum=m['linenum'], msg=msg)
+                    yield line
+
+    def render_to_view(self, formatted_results):
         """This blocks the main thread, so make it quick"""
         ## Header
         result_view = self.window.new_file()
         edit_ = result_view.begin_edit()
-        result_view.insert(edit_, result_view.size(), self.header(all_results))
+        result_view.insert(edit_, result_view.size(), self.header)
         result_view.end_edit(edit_)
 
         ## Result sections
-        for label, results in all_results.iteritems():
+        for line in formatted_results:
             edit_ = result_view.begin_edit()
-            result_view.insert(edit_, result_view.size(), '## %s\n\n' % label)
-            for result in results:
-                result_view.insert(edit_, result_view.size(), '%s\n' % result)
+            result_view.insert(edit_, result_view.size(), line)
             result_view.insert(edit_, result_view.size(), '\n')
             result_view.end_edit(edit_)
 
         ## Set syntax and settings
+        result_view.set_scratch(True)
         result_view.set_syntax_file('Packages/SublimeTODO/todo_results.hidden-tmLanguage')
         result_view.settings().set('line_padding_bottom', 2)
         result_view.settings().set('line_padding_top', 2)
@@ -165,17 +219,16 @@ class WorkerThread(threading.Thread):
     def run(self):
         ## Extract in this thread
         todos = self.extractor.extract()
+        rendered = list(self.renderer.format(todos))
 
         ## Render into new window in main thread
         def render():
-            self.renderer.render(todos)
+            self.renderer.render_to_view(rendered)
         sublime.set_timeout(render, 10)
 
 
 class FileScanCounter(object):
-    """Thread-safe counter used to update the status bar
-    Passed to the modified driver.pss_run(file_hook) and called (incremented) 
-    for every scanned file"""
+    """Thread-safe counter used to update the status bar"""
     def __init__(self):
         self.ct = 0
         self.lock = threading.RLock()
@@ -198,39 +251,23 @@ class FileScanCounter(object):
             self.ct = 0
 
 
-class FilepathDeduper(object):
-    """Store known filepaths, check if new path has been seen"""
-    def __init__(self):
-        self.paths = set()
-
-    def is_new(self, filepath):
-        if filepath in self.paths:
-            return False
-        self.paths.add(filepath)
-        return True
-
-    def reset(self):
-        self.paths = set()
-
-
 class TodoCommand(sublime_plugin.TextCommand):
 
     def search_paths(self, window):
-        search_paths = []
-        search_paths.extend(window.folders() or [])
-        search_paths.extend([view.file_name() for view in window.views() 
-                             if view.file_name()])
-        return search_paths
+        """Return (filepaths, dirpaths)"""
+        return (
+            [view.file_name() for view in window.views() if view.file_name()], 
+            window.folders()
+        )
 
     def run(self, edit):
         window = self.view.window()
-        search_paths = self.search_paths(window)
+        filepaths, dirpaths = self.search_paths(window)
         patterns = PATTERNS
         patterns.update(self.view.settings().get('todo_patterns', {}))
 
         ## Get exclude patterns from global settings
         ## Is there really no better way to access global settings?
-        print('fetching global settings')
         global_settings = sublime.load_settings('Global.sublime-settings')
         ignored_dirs = global_settings.get('folder_exclude_patterns', [])
 
@@ -240,9 +277,8 @@ class TodoCommand(sublime_plugin.TextCommand):
         exclude_file_patterns = [fnmatch.translate(patt) for patt in exclude_file_patterns]
 
         file_counter = FileScanCounter()
-        filepath_cache = FilepathDeduper()
-        extractor = TodoExtractor(patterns, search_paths, ignored_dirs, 
-                                  exclude_file_patterns, file_counter, filepath_cache)
+        extractor = TodoExtractor(patterns, filepaths, dirpaths, ignored_dirs, 
+                                  exclude_file_patterns, file_counter)
         renderer = TodoRenderer(window, file_counter)
 
         worker_thread = WorkerThread(extractor, renderer)
