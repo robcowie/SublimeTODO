@@ -103,7 +103,7 @@ class TodoExtractor(object):
         exclude_dirs = self.ignored_dirs
 
         for filepath in files:
-            pth = path.abspath(filepath)
+            pth = path.realpath(path.abspath(filepath))
             if pth not in seen_paths_:
                 seen_paths_.append(pth)
                 yield pth
@@ -118,6 +118,7 @@ class TodoExtractor(object):
 
                 for filepath in filenames:
                     pth = path.join(dirpath, filepath)
+                    pth = path.realpath(path.abspath(pth))
                     if pth not in seen_paths_:
                         seen_paths_.append(pth)
                         yield pth
@@ -148,6 +149,9 @@ class TodoExtractor(object):
                         matches = [Message(msg_type, msg) for msg_type, msg in mo.groupdict().iteritems() if msg]
                         for match in matches:
                             yield {'filepath': filepath, 'linenum': linenum, 'match': match}
+            except IOError:
+                ## Probably a broken symlink
+                pass
             finally:
                 self.file_counter.increment()
                 f.close()
