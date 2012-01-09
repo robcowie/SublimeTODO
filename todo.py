@@ -19,12 +19,18 @@ import sublime_plugin
 
 
 DEBUG = False
-PATTERNS = {
-    'TODO'     : r'TODO[\s]*?:+(?P<todo>.*)$',
-    'NOTE'     : r'NOTE[\s]*?:+(?P<note>.*)$',
-    'FIXME'    : r'FIX ?ME[\s]*?:+(?P<fixme>\S.*)$',
-    'CHANGED'  : r'CHANGED[\s]*?:+(?P<changed>\S.*)$',
-    # 'RADAR'    : r'ra?dar:/(?:/problem|)/([&0-9]+)$'
+
+DEFAULT_SETTINGS = {
+    'result_title': 'TODO Results',
+
+    'core_patterns': {
+        'TODO': r'TODO[\s]*?:+(?P<todo>.*)$',
+        'NOTE': r'NOTE[\s]*?:+(?P<note>.*)$',
+        'FIXME': r'FIX ?ME[\s]*?:+(?P<fixme>\S.*)$',
+        'CHANGED': r'CHANGED[\s]*?:+(?P<changed>\S.*)$'
+    },
+
+    'patterns': {}
 }
 
 Message = namedtuple('Message', 'type, msg')
@@ -50,6 +56,17 @@ log.setLevel(logging.INFO)
 if DEBUG:
     log.addHandler(logging.StreamHandler())
     log.setLevel(logging.DEBUG)
+
+
+class Settings(dict):
+    """Combine default and user settings"""
+    def __init__(self, user_settings):
+        settings = DEFAULT_SETTINGS.copy()
+        settings.update(user_settings)
+        ## Combine core_patterns and patterns
+        settings['core_patterns'].update(settings['patterns'])
+        settings['patterns'] = settings.pop('core_patterns')
+        super(Settings, self).__init__(settings)
 
 
 class ThreadProgress(object):
@@ -84,11 +101,12 @@ class ThreadProgress(object):
 
 
 class TodoExtractor(object):
-    def __init__(self, patterns, filepaths, dirpaths, ignored_dirs, ignored_file_patterns, 
+    def __init__(self, settings, filepaths, dirpaths, ignored_dirs, ignored_file_patterns, 
                  file_counter):
         self.filepaths = filepaths
         self.dirpaths = dirpaths
-        self.patterns = patterns
+        self.patterns = settings['patterns']
+        self.settings = settings
         self.file_counter = file_counter
         self.ignored_dirs = ignored_dirs
         self.ignored_files = ignored_file_patterns
@@ -158,9 +176,15 @@ class TodoExtractor(object):
 
 
 class TodoRenderer(object):
-    def __init__(self, window, file_counter):
+    def __init__(self, settings, window, file_counter):
         self.window = window
+        self.settings = settings
         self.file_counter = file_counter
+
+    @property
+    def view_name(self):
+        """The name of the new results view. Defined in settings."""
+        return self.settings['result_title']
 
     @property
     def header(self):
@@ -174,7 +198,18 @@ class TodoRenderer(object):
             # self.file_counter
         # )
 
-    ## NOTE: Fubar
+    @property
+    def view(self):
+        existing_results = [v for v in self.window.views() 
+                            if v.name() == self.view_name and v.is_scratch()]
+        if existing_results:
+            v = existing_results[0]
+        else:
+            v = self.window.new_file()
+            v.set_name(self.view_name)
+            v.set_scratch(True)
+        return v
+
     def format(self, messages):
         key_func = lambda m: m['match'].type
         messages = sorted(messages, key=key_func)
@@ -183,8 +218,7 @@ class TodoRenderer(object):
             matches = list(matches)
             if matches:
                 yield '\n## {0} ({1})'.format(message_type.upper(), len(matches))
-                for idx, m in enumerate(matches):
-                    idx += 1
+                for idx, m in enumerate(matches, 1):
                     msg = m['match'].msg.decode('utf8', 'ignore') ## Don't know the file encoding
                     filepath = path.basename(m['filepath'])
                     line = u"{idx}. {filepath}:{linenum} {msg}".format(
@@ -194,24 +228,25 @@ class TodoRenderer(object):
     def render_to_view(self, formatted_results):
         """This blocks the main thread, so make it quick"""
         ## Header
-        result_view = self.window.new_file()
-        edit_ = result_view.begin_edit()
-        result_view.insert(edit_, result_view.size(), self.header)
-        result_view.end_edit(edit_)
+        result_view = self.view
+        edit = result_view.begin_edit()
+        result_view.erase(edit, sublime.Region(0, result_view.size()))
+        result_view.insert(edit, result_view.size(), self.header)
+        result_view.end_edit(edit)
 
         ## Result sections
         for line in formatted_results:
-            edit_ = result_view.begin_edit()
-            result_view.insert(edit_, result_view.size(), line)
-            result_view.insert(edit_, result_view.size(), '\n')
-            result_view.end_edit(edit_)
+            edit = result_view.begin_edit()
+            result_view.insert(edit, result_view.size(), line)
+            result_view.insert(edit, result_view.size(), '\n')
+            result_view.end_edit(edit)
 
         ## Set syntax and settings
-        result_view.set_scratch(True)
         result_view.set_syntax_file('Packages/SublimeTODO/todo_results.hidden-tmLanguage')
         result_view.settings().set('line_padding_bottom', 2)
         result_view.settings().set('line_padding_top', 2)
         result_view.settings().set('word_wrap', False)
+        self.window.focus_view(result_view)
 
 
 class WorkerThread(threading.Thread):
@@ -266,9 +301,10 @@ class TodoCommand(sublime_plugin.TextCommand):
 
     def run(self, edit):
         window = self.view.window()
+        settings = Settings(self.view.settings().get('todo', {}))
+
+        ## TODO: Cleanup this init code. Maybe move it to the settings object
         filepaths, dirpaths = self.search_paths(window)
-        patterns = PATTERNS
-        patterns.update(self.view.settings().get('todo_patterns', {}))
 
         ## Get exclude patterns from global settings
         ## Is there really no better way to access global settings?
@@ -281,9 +317,9 @@ class TodoCommand(sublime_plugin.TextCommand):
         exclude_file_patterns = [fnmatch.translate(patt) for patt in exclude_file_patterns]
 
         file_counter = FileScanCounter()
-        extractor = TodoExtractor(patterns, filepaths, dirpaths, ignored_dirs, 
+        extractor = TodoExtractor(settings, filepaths, dirpaths, ignored_dirs, 
                                   exclude_file_patterns, file_counter)
-        renderer = TodoRenderer(window, file_counter)
+        renderer = TodoRenderer(settings, window, file_counter)
 
         worker_thread = WorkerThread(extractor, renderer)
         worker_thread.start()
