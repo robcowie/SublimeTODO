@@ -156,7 +156,7 @@ class TodoExtractor(object):
     def extract(self):
         """"""
         message_patterns = '|'.join(self.patterns.values())
-        patt = re.compile(message_patterns)
+        patt = re.compile(message_patterns, re.IGNORECASE)
         for filepath in self.search_targets():
             try:
                 f = open(filepath)
