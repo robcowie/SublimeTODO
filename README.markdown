@@ -6,34 +6,43 @@ project folders.
 
 # Install & Config
 
-    $ cd /sublime/text/Packages/
+    $ cd Sublime Text 2/Packages
     $ git clone https://robcowie@github.com/robcowie/SublimeTODO.git
 
 Or use the Sublime Package manager
 
-Extraction uses regular expressions that return one match group 
-representing the message. Default patterns are provided for `TODO`, `FIXME`, 
-`CHANGED` and `radar:/` urls.
-To override or provide more patterns, add `todo_patterns` to user settings, e.g.
+## Adding comment patterns
 
-    "todo_patterns": {
-        "FIXME": "FIX ?ME[\\s,:]+(\\S.*)$",
-        "CHANGED": "CHANGED[\\s,:]+(\\S.*)$",
-        "RADAR": "(.*<)ra?dar:\\/(?:\\/problem|)\\/([&0-9]+)(>.*)$"
+Extraction uses regular expressions that return one match group 
+representing the message. Default patterns are provided for `TODO`, `NOTE`, `FIXME` 
+and `CHANGED` comments.
+To override or provide more patterns, add `patterns` to user settings, e.g.
+
+    "patterns": {
+        'TODO': r'TODO[\s]*?:+(?P<todo>.*)$',
+        'NOTE': r'NOTE[\s]*?:+(?P<note>.*)$',
+        'FIXME': r'FIX ?ME[\s]*?:+(?P<fixme>\S.*)$',
+        'CHANGED': r'CHANGED[\s]*?:+(?P<changed>\S.*)$'
     }
 
+Note that the pattern _must_ provide at least one named group which will be used to group the comments in results.
+
+## Results title
+
+Override the results view title by setting `result_title`
+
+    "result_title": "TODO Results
 
 # Usage
 
-a `Show TODOs` command can be triggered from the command palette. No default 
+`Show TODOs` command can be triggered from the command palette. No default 
 key bindings are provided.
-
 
 # License
 
 All of SublimeTODO is licensed under the MIT license.
 
-Copyright (c) 2011 Rob Cowie <szaz@mac.com>
+Copyright (c) 2012 Rob Cowie <szaz@mac.com>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
 
