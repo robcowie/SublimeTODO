@@ -303,15 +303,17 @@ class TodoCommand(sublime_plugin.TextCommand):
         window = self.view.window()
         settings = Settings(self.view.settings().get('todo', {}))
 
+
         ## TODO: Cleanup this init code. Maybe move it to the settings object
         filepaths, dirpaths = self.search_paths(window)
 
+        ignored_dirs = settings.get('folder_exclude_patterns', [])
         ## Get exclude patterns from global settings
         ## Is there really no better way to access global settings?
         global_settings = sublime.load_settings('Global.sublime-settings')
-        ignored_dirs = global_settings.get('folder_exclude_patterns', [])
+        ignored_dirs.extend(global_settings.get('folder_exclude_patterns', []))
 
-        exclude_file_patterns = []
+        exclude_file_patterns = settings.get('file_exclude_patterns', [])
         exclude_file_patterns.extend(global_settings.get('file_exclude_patterns', []))
         exclude_file_patterns.extend(global_settings.get('binary_file_patterns', []))
         exclude_file_patterns = [fnmatch.translate(patt) for patt in exclude_file_patterns]
