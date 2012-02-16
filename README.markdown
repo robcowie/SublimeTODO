@@ -19,13 +19,33 @@ and `CHANGED` comments.
 To override or provide more patterns, add `patterns` to user settings, e.g.
 
     "patterns": {
-        'TODO': r'TODO[\s]*?:+(?P<todo>.*)$',
-        'NOTE': r'NOTE[\s]*?:+(?P<note>.*)$',
-        'FIXME': r'FIX ?ME[\s]*?:+(?P<fixme>\S.*)$',
-        'CHANGED': r'CHANGED[\s]*?:+(?P<changed>\S.*)$'
+        "TODO": "TODO[\\s]*?:+(?P<todo>.*)$",
+        "NOTE": "NOTE[\\s]*?:+(?P<note>.*)$",
+        "FIXME": "FIX ?ME[\\s]*?:+(?P<fixme>\\S.*)$",
+        "CHANGED": "CHANGED[\\s]*?:+(?P<changed>\\S.*)$"
     }
 
 Note that the pattern _must_ provide at least one named group which will be used to group the comments in results.
+
+## Excluding files and folders
+
+Global settings `folder_exclude_patterns`, `file_exclude_patterns` and `binary_file_patterns` are excluded from search results.
+
+To exclude further directories, add directory names (not glob pattern or regexp) to `folder_exclude_patterns` in todo settings:
+
+    "todo": {
+        "folder_exclude_patterns": [
+            "vendor", 
+            "tmp"
+        ]
+    }
+
+To add file excludes, add glob patterns to `file_exclude_patterns`:
+
+    "file_exclude_patterns": [
+        "*.css"
+    ]
+
 
 ## Results title
 
