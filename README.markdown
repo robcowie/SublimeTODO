@@ -51,7 +51,7 @@ To add file excludes, add glob patterns to `file_exclude_patterns`:
 
 Override the results view title by setting `result_title`
 
-    "result_title": "TODO Results
+    "result_title": "TODO Results"
 
 # Usage
 
