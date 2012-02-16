@@ -6,10 +6,10 @@ project folders.
 
 # Install & Config
 
+The preferred method is to use the [Sublime Package Manager](http://wbond.net/sublime_packages/package_control). Alternatively, checkout from github:
+
     $ cd Sublime Text 2/Packages
     $ git clone https://robcowie@github.com/robcowie/SublimeTODO.git
-
-Or use the Sublime Package manager
 
 ## Adding comment patterns
 
