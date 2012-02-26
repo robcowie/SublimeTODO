@@ -58,6 +58,16 @@ Override the results view title by setting `result_title`
 `Show TODOs` command can be triggered from the command palette. No default 
 key bindings are provided.
 
+## Navigating results
+
+Results can be navigated by keyboard and mouse:
+
+ * `n`ext, `p`revious, `c`lear, `enter`
+ * `alt-double click`
+
+ Note that due to the lack of support for context in mousemaps right now,
+ alt-double click will trigger in _any_ document, though it should be a no-op.
+
 # License
 
 All of SublimeTODO is licensed under the MIT license.

@@ -1,12 +1,15 @@
 # -*- coding: utf-8 -*-
 
 ## TODO: Implement TODO_IGNORE setting (http://mdeering.com/posts/004-get-your-textmate-todos-and-fixmes-under-control)
-## TODO: Make the output clickable (a la find results)
+## TODO: Make the output clickable (å la find results)
 ## TODO: Occasional NoneType bug
-## TODO: Make the sections foldable (define them as regions?)
+## todo: Make the sections foldable (define them as regions?)
+
+""""""
 
 from collections import namedtuple
 from datetime import datetime
+import functools
 import fnmatch
 from itertools import groupby
 import logging
@@ -18,7 +21,7 @@ import sublime
 import sublime_plugin
 
 
-DEBUG = False
+DEBUG = True
 
 DEFAULT_SETTINGS = {
     'result_title': 'TODO Results',
@@ -56,6 +59,12 @@ log.setLevel(logging.INFO)
 if DEBUG:
     log.addHandler(logging.StreamHandler())
     log.setLevel(logging.DEBUG)
+
+
+def do_when(conditional, callback, *args, **kwargs):
+    if conditional():
+        return callback(*args, **kwargs)
+    sublime.set_timeout(functools.partial(do_when, conditional, callback, *args, **kwargs), 50)
 
 
 class Settings(dict):
@@ -112,7 +121,6 @@ class TodoExtractor(object):
         self.ignored_files = ignored_file_patterns
         self.log = logging.getLogger('SublimeTODO.extractor')
 
-
     def iter_files(self):
         """"""
         seen_paths_ = []
@@ -166,7 +174,7 @@ class TodoExtractor(object):
                         ## Remove the non-matched groups
                         matches = [Message(msg_type, msg) for msg_type, msg in mo.groupdict().iteritems() if msg]
                         for match in matches:
-                            yield {'filepath': filepath, 'linenum': linenum, 'match': match}
+                            yield {'filepath': filepath, 'linenum': linenum + 1, 'match': match}
             except IOError:
                 ## Probably a broken symlink
                 pass
@@ -188,15 +196,11 @@ class TodoRenderer(object):
 
     @property
     def header(self):
-        hr = '+ {0} +'.format('-' * 76)
-        return '{hr}\n| TODOS @ {0:<68} |\n| {1:<76} |\n{hr}\n'.format(
+        hr = u'+ {0} +'.format('-' * 76)
+        return u'{hr}\n| TODOS @ {0:<68} |\n| {1:<76} |\n{hr}\n'.format(
             datetime.utcnow().strftime('%A %d %B %Y %H:%M'),
-            '{0} files scanned'.format(self.file_counter),
+            u'{0} files scanned'.format(self.file_counter),
             hr=hr)
-        # return '# TODOs @ {0} \n## {1} files scanned \n\n'.format(
-            # datetime.utcnow().strftime('%A %d %B %Y %H:%M'),
-            # self.file_counter
-        # )
 
     @property
     def view(self):
@@ -208,22 +212,28 @@ class TodoRenderer(object):
             v = self.window.new_file()
             v.set_name(self.view_name)
             v.set_scratch(True)
+            v.settings().set('todo_results', True)
         return v
 
     def format(self, messages):
+        """Yield lines for rendering into results view. Includes headers and 
+        blank lines.
+        Lines are returned in the form (type, content, [data]) where type is either 
+        'header', 'whitespace' or 'result'
+        """
         key_func = lambda m: m['match'].type
         messages = sorted(messages, key=key_func)
 
         for message_type, matches in groupby(messages, key=key_func):
             matches = list(matches)
             if matches:
-                yield '\n## {0} ({1})'.format(message_type.upper(), len(matches))
+                yield ('header', u'\n## {0} ({1})'.format(message_type.upper().decode('utf8', 'ignore'), len(matches)), {})
                 for idx, m in enumerate(matches, 1):
                     msg = m['match'].msg.decode('utf8', 'ignore') ## Don't know the file encoding
                     filepath = path.basename(m['filepath'])
                     line = u"{idx}. {filepath}:{linenum} {msg}".format(
                         idx=idx, filepath=filepath, linenum=m['linenum'], msg=msg)
-                    yield line
+                    yield ('result', line, m)
 
     def render_to_view(self, formatted_results):
         """This blocks the main thread, so make it quick"""
@@ -234,18 +244,35 @@ class TodoRenderer(object):
         result_view.insert(edit, result_view.size(), self.header)
         result_view.end_edit(edit)
 
+        ## Region : match_dicts
+        regions = {}
+
         ## Result sections
-        for line in formatted_results:
+        for linetype, line, data in formatted_results:
             edit = result_view.begin_edit()
-            result_view.insert(edit, result_view.size(), line)
-            result_view.insert(edit, result_view.size(), '\n')
+            insert_point = result_view.size()
+            result_view.insert(edit, insert_point, line)
+            if linetype == 'result':
+                rgn = sublime.Region(insert_point, result_view.size())
+                regions[rgn] = data
+            result_view.insert(edit, result_view.size(), u'\n')
             result_view.end_edit(edit)
+
+        result_view.add_regions('results', regions.keys(), '')
+
+        ## Store {Region : data} map in settings
+        ## TODO: Abstract this out to a storage class Storage.get(region) ==> data dict
+        ## Region() cannot be stored in settings, so convert to a primitive type
+        # d_ = regions
+        d_ = dict(('{0},{1}'.format(k.a, k.b), v) for k, v in regions.iteritems())
+        result_view.settings().set('result_regions', d_)
 
         ## Set syntax and settings
         result_view.set_syntax_file('Packages/SublimeTODO/todo_results.hidden-tmLanguage')
         result_view.settings().set('line_padding_bottom', 2)
         result_view.settings().set('line_padding_top', 2)
         result_view.settings().set('word_wrap', False)
+        result_view.settings().set('command_mode', True)
         self.window.focus_view(result_view)
 
 
@@ -326,3 +353,85 @@ class TodoCommand(sublime_plugin.TextCommand):
         worker_thread = WorkerThread(extractor, renderer)
         worker_thread.start()
         ThreadProgress(worker_thread, 'Finding TODOs', '', file_counter)
+
+
+class NavigateResults(sublime_plugin.TextCommand):
+    DIRECTION = {'forward': 1, 'backward': -1}
+    STARTING_POINT = {'forward': -1, 'backward': 0}
+
+    def __init__(self, view):
+        super(NavigateResults, self).__init__(view)
+
+    def run(self, edit, direction):
+        view = self.view
+        settings = view.settings()
+        results = self.view.get_regions('results')
+        if not results:
+            sublime.status_message('No results to navigate')
+            return
+
+        ##NOTE: numbers stored in settings are coerced to floats or longs
+        selection = int(settings.get('selected_result', self.STARTING_POINT[direction]))
+        selection = selection + self.DIRECTION[direction]
+        try:
+            target = results[selection]
+        except IndexError:
+            target = results[0]
+            selection = 0
+
+        settings.set('selected_result', selection)
+        ## Create a new region for highlighting
+        target = target.cover(target)
+        view.add_regions('selection', [target], 'selected', 'dot')
+        view.show(target)
+
+
+class ClearSelection(sublime_plugin.TextCommand):
+    def run(self, edit):
+        self.view.erase_regions('selection')
+        self.view.settings().erase('selected_result')
+
+
+class GotoComment(sublime_plugin.TextCommand):
+    def __init__(self, *args):
+        self.log = logging.getLogger('SublimeTODO.nav')
+        super(GotoComment, self).__init__(*args)
+
+    def run(self, edit):
+        ## Get the idx of selected result region
+        selection = int(self.view.settings().get('selected_result', -1))
+        ## Get the region
+        selected_region = self.view.get_regions('results')[selection]
+        ## Convert region to key used in result_regions (this is tedious, but 
+        ##    there is no other way to store regions with associated data)
+        data = self.view.settings().get('result_regions')['{0},{1}'.format(selected_region.a, selected_region.b)]
+        self.log.debug('Goto comment at {filepath}:{linenum}'.format(**data))
+        new_view = self.view.window().open_file(data['filepath'])
+        do_when(lambda: not new_view.is_loading(), lambda: new_view.run_command("goto_line", {"line": data['linenum']}))
+
+
+class MouseGotoComment(sublime_plugin.TextCommand):
+    def __init__(self, *args):
+        self.log = logging.getLogger('SublimeTODO.nav')
+        super(MouseGotoComment, self).__init__(*args)
+
+    def highlight(self, region):
+        target = region.cover(region)
+        self.view.add_regions('selection', [target], 'selected', 'dot')
+        self.view.show(target)
+
+    def get_result_region(self, pos):
+        line = self.view.line(pos)
+        return line
+
+    def run(self, edit):
+        if not self.view.settings().get('result_regions'):
+            return
+        ## get selected line
+        pos = self.view.sel()[0].end()
+        result = self.get_result_region(pos)
+        self.highlight(result)
+        data = self.view.settings().get('result_regions')['{0},{1}'.format(result.a, result.b)]
+        self.log.debug('Goto comment at {filepath}:{linenum}'.format(**data))
+        new_view = self.view.window().open_file(data['filepath'])
+        do_when(lambda: not new_view.is_loading(), lambda: new_view.run_command("goto_line", {"line": data['linenum']}))
