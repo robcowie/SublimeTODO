@@ -1,0 +1,5 @@
+{
+    "version": "2.0.0",
+    "url": "https://github.com/robcowie/SublimeTODO",
+    "description": "Extract TODO-type comments from open files and project folders"
+}
