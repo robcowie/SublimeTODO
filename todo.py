@@ -21,7 +21,7 @@ import sublime
 import sublime_plugin
 
 
-DEBUG = True
+DEBUG = False
 
 DEFAULT_SETTINGS = {
     'result_title': 'TODO Results',
