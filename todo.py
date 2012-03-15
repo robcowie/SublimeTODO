@@ -29,8 +29,8 @@ DEFAULT_SETTINGS = {
     'core_patterns': {
         'TODO': r'TODO[\s]*?:+(?P<todo>.*)$',
         'NOTE': r'NOTE[\s]*?:+(?P<note>.*)$',
-        'FIXME': r'FIX ?ME[\s]*?:+(?P<fixme>\S.*)$',
-        'CHANGED': r'CHANGED[\s]*?:+(?P<changed>\S.*)$'
+        'FIXME': r'FIX ?ME[\s]*?:+(?P<fixme>.*)$',
+        'CHANGED': r'CHANGED[\s]*?:+(?P<changed>.*)$'
     },
 
     'patterns': {}
