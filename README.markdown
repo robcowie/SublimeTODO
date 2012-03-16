@@ -59,6 +59,10 @@ Override the results view title by setting `result_title`
 
     "result_title": "TODO Results"
 
+## Example
+
+Example configuser config file can be found [here](https://gist.github.com/2049887)
+
 # Usage
 
 `Show TODOs` command can be triggered from the command palette. No default 
