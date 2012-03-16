@@ -164,7 +164,8 @@ class TodoExtractor(object):
     def extract(self):
         """"""
         message_patterns = '|'.join(self.patterns.values())
-        patt = re.compile(message_patterns, re.IGNORECASE)
+        case_sensitivity = 0 if self.settings.get('case_sensitive', False) else re.IGNORECASE
+        patt = re.compile(message_patterns, case_sensitivity)
         for filepath in self.search_targets():
             try:
                 f = open(filepath)

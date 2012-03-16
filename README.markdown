@@ -27,6 +27,12 @@ To override or provide more patterns, add `patterns` to user settings, e.g.
 
 Note that the pattern _must_ provide at least one named group which will be used to group the comments in results.
 
+By default, searching is case insensitive. You can change this behaviour by adding 
+
+    "case_insensitive": true
+
+to the todo settings object.
+
 ## Excluding files and folders
 
 Global settings `folder_exclude_patterns`, `file_exclude_patterns` and `binary_file_patterns` are excluded from search results.
