@@ -4,12 +4,29 @@ A Sublime Text 2 plugin to extract and list TODO comments from open files and
 project folders.
 
 
-# Install & Config
+# Install
 
 The preferred method is to use the [Sublime Package Manager](http://wbond.net/sublime_packages/package_control). Alternatively, checkout from github:
 
-    $ cd Sublime Text 2/Packages
-    $ git clone https://robcowie@github.com/robcowie/SublimeTODO.git
+```sh
+$ cd Sublime Text 2/Packages
+$ git clone https://robcowie@github.com/robcowie/SublimeTODO.git
+```
+
+# Config
+
+All plugin configuration must be placed in user or project-specific settings inside a `todo` object, for example;
+
+```javascript
+{
+    // other user config ...
+    "todo": {
+        "patterns": {}
+    }
+}
+```
+
+See an example user settings file [here](https://gist.github.com/2049887).
 
 ## Adding comment patterns
 
@@ -18,12 +35,14 @@ representing the message. Default patterns are provided for `TODO`, `NOTE`, `FIX
 and `CHANGED` comments.
 To override or provide more patterns, add `patterns` to user settings, e.g.
 
-    "patterns": {
-        "TODO": "TODO[\\s]*?:+(?P<todo>.*)$",
-        "NOTE": "NOTE[\\s]*?:+(?P<note>.*)$",
-        "FIXME": "FIX ?ME[\\s]*?:+(?P<fixme>\\S.*)$",
-        "CHANGED": "CHANGED[\\s]*?:+(?P<changed>\\S.*)$"
-    }
+```javascript
+"patterns": {
+    "TODO": "TODO[\\s]*?:+(?P<todo>.*)$",
+    "NOTE": "NOTE[\\s]*?:+(?P<note>.*)$",
+    "FIXME": "FIX ?ME[\\s]*?:+(?P<fixme>\\S.*)$",
+    "CHANGED": "CHANGED[\\s]*?:+(?P<changed>\\S.*)$"
+}
+```
 
 Note that the pattern _must_ provide at least one named group which will be used to group the comments in results.
 
@@ -39,29 +58,31 @@ Global settings `folder_exclude_patterns`, `file_exclude_patterns` and `binary_f
 
 To exclude further directories, add directory names (not glob pattern or regexp) to `folder_exclude_patterns` in todo settings:
 
-    "todo": {
-        "folder_exclude_patterns": [
-            "vendor", 
-            "tmp"
-        ]
-    }
+```javascript
+"todo": {
+    "folder_exclude_patterns": [
+        "vendor", 
+        "tmp"
+    ]
+}
+```
 
 To add file excludes, add glob patterns to `file_exclude_patterns`:
 
-    "file_exclude_patterns": [
-        "*.css"
-    ]
+```javascript
+"file_exclude_patterns": [
+    "*.css"
+]
+```
 
 
 ## Results title
 
 Override the results view title by setting `result_title`
 
-    "result_title": "TODO Results"
-
-## Example
-
-Example configuser config file can be found [here](https://gist.github.com/2049887)
+```javascript
+"result_title": "TODO Results"
+```
 
 # Usage
 
