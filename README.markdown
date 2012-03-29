@@ -3,6 +3,8 @@
 A Sublime Text 2 plugin to extract and list TODO comments from open files and 
 project folders.
 
+Take a look at [this screencast](http://webdesign.tutsplus.com/tutorials/applications/quick-tip-streamline-your-todo-lists-in-sublime-text-2/) (courtesy of Shannon Huffman) for an overview.
+
 
 # Install
 
