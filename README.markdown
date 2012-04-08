@@ -30,6 +30,7 @@ All plugin configuration must be placed in user or project-specific settings ins
 
 See an example user settings file [here](https://gist.github.com/2049887).
 
+
 ## Adding comment patterns
 
 Extraction uses regular expressions that return one match group 
@@ -53,6 +54,7 @@ By default, searching is case insensitive. You can change this behaviour by addi
     "case_insensitive": true
 
 to the todo settings object.
+
 
 ## Excluding files and folders
 
@@ -85,6 +87,15 @@ Override the results view title by setting `result_title`
 ```javascript
 "result_title": "TODO Results"
 ```
+
+## Scanning open files only
+
+If you have a particularly large project (>2k files), you may want to scan only open (saved) files.
+
+```javascript
+"open_files_only": true
+```
+
 
 # Usage
 
