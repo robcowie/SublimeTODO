@@ -327,14 +327,13 @@ class TodoCommand(sublime_plugin.TextCommand):
             window.folders() if not open_files_only else []
         )
 
-    def run(self, edit):
+    def run(self, edit, open_files_only=False):
         window = self.view.window()
         settings = Settings(self.view.settings().get('todo', {}))
 
 
         ## TODO: Cleanup this init code. Maybe move it to the settings object
-        filepaths, dirpaths = self.search_paths(window,
-            open_files_only=settings.get('open_files_only', False))
+        filepaths, dirpaths = self.search_paths(window, open_files_only=open_files_only)
 
         ignored_dirs = settings.get('folder_exclude_patterns', [])
         ## Get exclude patterns from global settings

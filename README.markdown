@@ -88,19 +88,11 @@ Override the results view title by setting `result_title`
 "result_title": "TODO Results"
 ```
 
-## Scanning open files only
-
-If you have a particularly large project (>2k files), you may want to scan only open (saved) files.
-
-```javascript
-"open_files_only": true
-```
-
-
 # Usage
 
-`Show TODOs` command can be triggered from the command palette. No default 
-key bindings are provided.
+`Show TODOs: Project and open files` scans all files in your project
+`Show TODOs: Open files only` scans only open, saved files
+Both are triggered from the command palette. No default key bindings are provided.
 
 ## Navigating results
 

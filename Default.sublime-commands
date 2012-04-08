@@ -1,6 +1,10 @@
 [
     {
-        "caption": "Show TODOs in project and open files",
+        "caption": "Show TODOs: Project and open files",
         "command": "todo"
+    },
+    {
+        "caption": "Show TODOs: Open files only",
+        "command": "todo", "args": {"open_files_only": true}
     }
 ]
