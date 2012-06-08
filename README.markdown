@@ -49,9 +49,9 @@ To override or provide more patterns, add `patterns` to user settings, e.g.
 
 Note that the pattern _must_ provide at least one named group which will be used to group the comments in results.
 
-By default, searching is case insensitive. You can change this behaviour by adding 
+By default, searching is not case sensitive. You can change this behaviour by adding 
 
-    "case_insensitive": true
+    "case_sensitive": true
 
 to the todo settings object.
 
