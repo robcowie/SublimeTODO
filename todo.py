@@ -139,7 +139,7 @@ class TodoExtractor(object):
             for dirpath, dirnames, filenames in walk(dirpath):
                 ## remove excluded dirs
                 for dir in [dir for dir in exclude_dirs if dir in dirnames]:
-                    self.log.debug('Ignoring dir: {0}'.format(dir))
+                    self.log.debug(u'Ignoring dir: {0}'.format(dir))
                     dirnames.remove(dir)
 
                 for filepath in filenames:
@@ -169,7 +169,7 @@ class TodoExtractor(object):
         for filepath in self.search_targets():
             try:
                 f = open(filepath)
-                self.log.debug('Scanning {0}'.format(filepath))
+                self.log.debug(u'Scanning {0}'.format(filepath))
                 for linenum, line in enumerate(f):
                     for mo in patt.finditer(line):
                         ## Remove the non-matched groups
@@ -302,7 +302,7 @@ class FileScanCounter(object):
         self.log = logging.getLogger('SublimeTODO')
 
     def __call__(self, filepath):
-        self.log.debug('Scanning %s' % filepath)
+        self.log.debug(u'Scanning %s' % filepath)
         self.increment()
 
     def __str__(self):
@@ -406,7 +406,7 @@ class GotoComment(sublime_plugin.TextCommand):
         ## Convert region to key used in result_regions (this is tedious, but 
         ##    there is no other way to store regions with associated data)
         data = self.view.settings().get('result_regions')['{0},{1}'.format(selected_region.a, selected_region.b)]
-        self.log.debug('Goto comment at {filepath}:{linenum}'.format(**data))
+        self.log.debug(u'Goto comment at {filepath}:{linenum}'.format(**data))
         new_view = self.view.window().open_file(data['filepath'])
         do_when(lambda: not new_view.is_loading(), lambda: new_view.run_command("goto_line", {"line": data['linenum']}))
 
@@ -433,6 +433,6 @@ class MouseGotoComment(sublime_plugin.TextCommand):
         result = self.get_result_region(pos)
         self.highlight(result)
         data = self.view.settings().get('result_regions')['{0},{1}'.format(result.a, result.b)]
-        self.log.debug('Goto comment at {filepath}:{linenum}'.format(**data))
+        self.log.debug(u'Goto comment at {filepath}:{linenum}'.format(**data))
         new_view = self.view.window().open_file(data['filepath'])
         do_when(lambda: not new_view.is_loading(), lambda: new_view.run_command("goto_line", {"line": data['linenum']}))
