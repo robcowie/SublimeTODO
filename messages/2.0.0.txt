@@ -1,6 +1,0 @@
-SublimeTODO 2.0.0 Changelog:
-
-New features
-
- - Keyboard navigation of search results (n)ext, (p)revious, enter to view
- - Mouse navigation; alt-double click to jump to message
