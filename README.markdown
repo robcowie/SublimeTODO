@@ -99,7 +99,7 @@ Both are triggered from the command palette. No default key bindings are provide
 Results can be navigated by keyboard and mouse:
 
  * `n`ext, `p`revious, `c`lear, `enter`
- * `alt-double click`
+ * `alt-double click` (`shift-double click` in Linux)
 
  Note that due to the lack of support for context in mousemaps right now,
  alt-double click will trigger in _any_ document, though it should be a no-op.
