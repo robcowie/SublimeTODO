@@ -21,7 +21,7 @@ import sublime
 import sublime_plugin
 
 
-DEBUG = False
+DEBUG = True
 
 DEFAULT_SETTINGS = {
     'result_title': 'TODO Results',
@@ -138,9 +138,11 @@ class TodoExtractor(object):
             dirpath = path.abspath(dirpath)
             for dirpath, dirnames, filenames in walk(dirpath):
                 ## remove excluded dirs
-                for dir in [dir for dir in exclude_dirs if dir in dirnames]:
-                    self.log.debug(u'Ignoring dir: {0}'.format(dir))
-                    dirnames.remove(dir)
+                ## TODO: These are not patterns. Consider making them glob patterns
+                for dir in exclude_dirs:
+                    if dir in dirnames:
+                        self.log.debug(u'Ignoring dir: {0}'.format(dir))
+                        dirnames.remove(dir)
 
                 for filepath in filenames:
                     pth = path.join(dirpath, filepath)
