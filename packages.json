@@ -6,12 +6,12 @@
             "description": "Extract TODO-type comments from open files and project folders",
             "author": "Rob Cowie",
             "homepage": "https://github.com/robcowie/SublimeTODO",
-            "last_modified": "2012-10-29 17:23:00",
+            "last_modified": "2012-11-12 10:16:00",
             "platforms": {
                 "*": [
                     {
-                        "version": "1.1.1",
-                        "url": "https://nodeload.github.com/robcowie/SublimeTODO/zipball/1.1.1"
+                        "version": "1.1.2",
+                        "url": "https://nodeload.github.com/robcowie/SublimeTODO/zipball/1.1.2"
                     }
                 ]
             }
