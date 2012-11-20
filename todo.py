@@ -180,10 +180,11 @@ class TodoExtractor(object):
                             yield {'filepath': filepath, 'linenum': linenum + 1, 'match': match}
             except IOError:
                 ## Probably a broken symlink
-                pass
+                f = None
             finally:
                 self.file_counter.increment()
-                f.close()
+                if f is not None:
+                    f.close()
 
 
 class TodoRenderer(object):
