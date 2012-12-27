@@ -1,0 +1,17 @@
+{
+    "result_title": "TODO Results",
+
+    "core_patterns": {
+        "TODO": "TODO[\\s]*?:+(?P<todo>.*)$",
+        "NOTE": "NOTE[\\s]*?:+(?P<note>.*)$",
+        "FIXME": "FIX ?ME[\\s]*?:+(?P<fixme>.*)$",
+        "CHANGED": "CHANGED[\\s]*?:+(?P<changed>.*)$"
+    },
+
+    "case_sensitive": false,
+
+    "patterns": {},
+
+    "file_exclude_patterns": [],
+    "folder_exclude_patterns": []
+}

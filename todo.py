@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 
 ## TODO: Implement TODO_IGNORE setting (http://mdeering.com/posts/004-get-your-textmate-todos-and-fixmes-under-control)
-## TODO: Make the output clickable (å la find results)
 ## TODO: Occasional NoneType bug
 ## todo: Make the sections foldable (define them as regions?)
 
@@ -22,19 +21,6 @@ import sublime_plugin
 
 
 DEBUG = True
-
-DEFAULT_SETTINGS = {
-    'result_title': 'TODO Results',
-
-    'core_patterns': {
-        'TODO': r'TODO[\s]*?:+(?P<todo>.*)$',
-        'NOTE': r'NOTE[\s]*?:+(?P<note>.*)$',
-        'FIXME': r'FIX ?ME[\s]*?:+(?P<fixme>.*)$',
-        'CHANGED': r'CHANGED[\s]*?:+(?P<changed>.*)$'
-    },
-
-    'patterns': {}
-}
 
 Message = namedtuple('Message', 'type, msg')
 
@@ -65,17 +51,6 @@ def do_when(conditional, callback, *args, **kwargs):
     if conditional():
         return callback(*args, **kwargs)
     sublime.set_timeout(functools.partial(do_when, conditional, callback, *args, **kwargs), 50)
-
-
-class Settings(dict):
-    """Combine default and user settings"""
-    def __init__(self, user_settings):
-        settings = DEFAULT_SETTINGS.copy()
-        settings.update(user_settings)
-        ## Combine core_patterns and patterns
-        settings['core_patterns'].update(settings['patterns'])
-        settings['patterns'] = settings.pop('core_patterns')
-        super(Settings, self).__init__(settings)
 
 
 class ThreadProgress(object):
@@ -110,15 +85,10 @@ class ThreadProgress(object):
 
 
 class TodoExtractor(object):
-    def __init__(self, settings, filepaths, dirpaths, ignored_dirs, ignored_file_patterns, 
-                 file_counter):
+    def __init__(self, filepaths, dirpaths, **kwargs):
+        self.__dict__.update(kwargs)
         self.filepaths = filepaths
         self.dirpaths = dirpaths
-        self.patterns = settings['patterns']
-        self.settings = settings
-        self.file_counter = file_counter
-        self.ignored_dirs = ignored_dirs
-        self.ignored_files = ignored_file_patterns
         self.log = logging.getLogger('SublimeTODO.extractor')
 
     def iter_files(self):
@@ -166,8 +136,7 @@ class TodoExtractor(object):
     def extract(self):
         """"""
         message_patterns = '|'.join(self.patterns.values())
-        case_sensitivity = 0 if self.settings.get('case_sensitive', False) else re.IGNORECASE
-        patt = re.compile(message_patterns, case_sensitivity)
+        patt = re.compile(message_patterns, self.case_sensitive)
         for filepath in self.search_targets():
             try:
                 f = open(filepath)
@@ -188,15 +157,14 @@ class TodoExtractor(object):
 
 
 class TodoRenderer(object):
-    def __init__(self, settings, window, file_counter):
+    def __init__(self, window, **kwargs):
         self.window = window
-        self.settings = settings
-        self.file_counter = file_counter
+        self.__dict__.update(kwargs)
 
     @property
     def view_name(self):
         """The name of the new results view. Defined in settings."""
-        return self.settings['result_title']
+        return self.title
 
     @property
     def header(self):
@@ -208,7 +176,7 @@ class TodoRenderer(object):
 
     @property
     def view(self):
-        existing_results = [v for v in self.window.views() 
+        existing_results = [v for v in self.window.views()
                             if v.name() == self.view_name and v.is_scratch()]
         if existing_results:
             v = existing_results[0]
@@ -220,9 +188,9 @@ class TodoRenderer(object):
         return v
 
     def format(self, messages):
-        """Yield lines for rendering into results view. Includes headers and 
+        """Yield lines for rendering into results view. Includes headers and
         blank lines.
-        Lines are returned in the form (type, content, [data]) where type is either 
+        Lines are returned in the form (type, content, [data]) where type is either
         'header', 'whitespace' or 'result'
         """
         key_func = lambda m: m['match'].type
@@ -326,33 +294,44 @@ class TodoCommand(sublime_plugin.TextCommand):
     def search_paths(self, window, open_files_only=False):
         """Return (filepaths, dirpaths)"""
         return (
-            [view.file_name() for view in window.views() if view.file_name()], 
+            [view.file_name() for view in window.views() if view.file_name()],
             window.folders() if not open_files_only else []
         )
 
     def run(self, edit, open_files_only=False):
-        window = self.view.window()
-        settings = Settings(self.view.settings().get('todo', {}))
+        view = self.view
+        window = view.window()
+        settings = {}
 
-
-        ## TODO: Cleanup this init code. Maybe move it to the settings object
-        filepaths, dirpaths = self.search_paths(window, open_files_only=open_files_only)
-
-        ignored_dirs = settings.get('folder_exclude_patterns', [])
-        ## Get exclude patterns from global settings
-        ## Is there really no better way to access global settings?
+        ## Load settings files
+        plugin_settings = sublime.load_settings('SublimeTODO.sublime-settings')
         global_settings = sublime.load_settings('Global.sublime-settings')
-        ignored_dirs.extend(global_settings.get('folder_exclude_patterns', []))
 
-        exclude_file_patterns = settings.get('file_exclude_patterns', [])
+        ## Prepare the settings required for renderer and extractor
+        ## TODO: Consider moving this to an object that is maintained with on_change
+
+        ## Merge core_patterns and patterns
+        settings['patterns'] = plugin_settings.get('core_patterns', {})
+        settings['patterns'].update(plugin_settings.get('patterns'))
+
+        settings['case_sensitive'] = 0 if plugin_settings.get('case_sensitive', False) else re.IGNORECASE
+        settings['ignored_dirs'] = plugin_settings.get('folder_exclude_patterns', [])
+        settings['title'] = plugin_settings.get('result_title')
+
+        ## File exclude patterns merged with binary file patterns
+        exclude_file_patterns = plugin_settings.get('file_exclude_patterns', [])
         exclude_file_patterns.extend(global_settings.get('file_exclude_patterns', []))
         exclude_file_patterns.extend(global_settings.get('binary_file_patterns', []))
         exclude_file_patterns = [fnmatch.translate(patt) for patt in exclude_file_patterns]
+        settings['ignored_files'] = exclude_file_patterns
+
+        filepaths, dirpaths = self.search_paths(window, open_files_only=open_files_only)
 
         file_counter = FileScanCounter()
-        extractor = TodoExtractor(settings, filepaths, dirpaths, ignored_dirs, 
-                                  exclude_file_patterns, file_counter)
-        renderer = TodoRenderer(settings, window, file_counter)
+        settings['file_counter'] = file_counter
+
+        extractor = TodoExtractor(filepaths, dirpaths, **settings)
+        renderer = TodoRenderer(window, **settings)
 
         worker_thread = WorkerThread(extractor, renderer)
         worker_thread.start()
@@ -402,15 +381,16 @@ class GotoComment(sublime_plugin.TextCommand):
         super(GotoComment, self).__init__(*args)
 
     def run(self, edit):
+        view = self.view
         ## Get the idx of selected result region
-        selection = int(self.view.settings().get('selected_result', -1))
+        selection = int(view.settings().get('selected_result', -1))
         ## Get the region
-        selected_region = self.view.get_regions('results')[selection]
-        ## Convert region to key used in result_regions (this is tedious, but 
+        selected_region = view.get_regions('results')[selection]
+        ## Convert region to key used in result_regions (this is tedious, but
         ##    there is no other way to store regions with associated data)
-        data = self.view.settings().get('result_regions')['{0},{1}'.format(selected_region.a, selected_region.b)]
+        data = view.settings().get('result_regions')['{0},{1}'.format(selected_region.a, selected_region.b)]
         self.log.debug(u'Goto comment at {filepath}:{linenum}'.format(**data))
-        new_view = self.view.window().open_file(data['filepath'])
+        new_view = view.window().open_file(data['filepath'])
         do_when(lambda: not new_view.is_loading(), lambda: new_view.run_command("goto_line", {"line": data['linenum']}))
 
 
